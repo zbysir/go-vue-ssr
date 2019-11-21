@@ -7,12 +7,11 @@ import (
 	"os"
 )
 
-type Node interface{}
-
 type Element struct {
+	Text     string // 只是字
 	TagName  string
 	Attrs    []xml.Attr
-	Children []Node
+	Children []Element
 }
 
 func H(filename string) (*Element, error) {
@@ -39,9 +38,10 @@ func H(filename string) (*Element, error) {
 		switch token := token.(type) {
 		case xml.StartElement:
 			stack = append(stack, &Element{
+				"",
 				token.Name.Local,
 				token.Attr,
-				[]Node{},
+				[]Element{},
 			})
 
 			break
@@ -54,7 +54,7 @@ func H(filename string) (*Element, error) {
 			}
 
 			preNode := stack[len(stack)-1]
-			preNode.Children = append(preNode.Children, currentNode)
+			preNode.Children = append(preNode.Children, *currentNode)
 			currentElement = preNode
 
 			break
@@ -64,7 +64,7 @@ func H(filename string) (*Element, error) {
 			}
 
 			lastNode := stack[len(stack)-1]
-			lastNode.Children = append(lastNode.Children, string(token[:]))
+			lastNode.Children = append(lastNode.Children, Element{Text: string(token[:])})
 			break
 		}
 	}
