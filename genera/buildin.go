@@ -1,4 +1,4 @@
-package generat
+package genera
 
 import (
 	"encoding/xml"
