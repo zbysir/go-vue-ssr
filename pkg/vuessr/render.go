@@ -9,6 +9,7 @@ import (
 
 type Render interface {
 	Render(app *App, data interface{}, slot string) string
+	RenderFunc(app *App, slot string) (function string)
 }
 
 type Elementer interface {
@@ -16,53 +17,69 @@ type Elementer interface {
 }
 
 type App struct {
-	Components map[string]Render // name=>node
+	Components map[string]struct{} // name=>node
 }
 
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
-func (e *Element) Render(app *App, data interface{}, slot string) string {
-	// 节点是slot, 则应该填充传递进来的slot
-	if e.TagName == "slot" {
-		return slot
-	}
+// todo 如果将slot改为map[string]string应该就可以实现多个slot.
+//
+// 用节点直接渲染可能会有的性能问题:
+// - 处理文字时会使用正则来匹配{{变量, 会消耗过多性能
+// - 很多没有变量的节点可以被预先处理成字符串, 就不会走递归流程
+//
 
-	// 如果只是文字, 则直接返回文字
-	if e.Text != "" {
-
-		//
-		return injectVal(e.Text, data)
-	}
-
-	mySlot := ""
+// 每个组件都是一个func或者是一个字符串
+// dataInject:
+func (e *Element) RenderFunc(app *App, slot string) (code string) {
+	mySlotCode := ""
 
 	if len(e.Children) != 0 {
 		for _, v := range e.Children {
-			sr := v.Render(app, data, slot)
-			mySlot += sr
+			sr := v.RenderFunc(app, slot)
+			if mySlotCode == "" {
+				mySlotCode += sr
+			} else {
+				mySlotCode += "+" + sr
+			}
 		}
 	}
 
+	if mySlotCode == "" {
+		mySlotCode = `""`
+	}
+
 	var currTag = ""
-	custom, exist := app.Components[e.TagName]
+
+	// 调用方法
+	_, exist := app.Components[e.TagName]
 	if exist {
-		bind := getBind(e.Attrs)
 		// 从bind中读取数据, 做为子级数据
-		childData := map[string]interface{}{}
-
-		m, ok := data.(map[string]interface{})
-		if ok {
-			for k, v := range bind {
-				childData[k] = m[v]
-			}
+		bind := getBind(e.Attrs)
+		var dataInjectCode = "map[string]interface{}"
+		dataInjectCode += "{"
+		for k, v := range bind {
+			dataInjectCode += fmt.Sprintf(`"%s": lookInterface(data, "%s"),`, k, v)
 		}
+		dataInjectCode += "}"
 
-		currTag = custom.Render(app, childData, mySlot)
+		currTag = fmt.Sprintf("XComponent_%s(%s, %s)", e.TagName, dataInjectCode, mySlotCode)
 	} else if e.TagName == "template" {
-		currTag = mySlot
+		// 使用模板
+		currTag = mySlotCode
+	} else if e.TagName == "slot" {
+		if slot == "" {
+			slot = `""`
+		}
+		currTag = "slot"
+	} else if e.TagName == "__string" {
+		text := strings.Replace(e.Text, "\n", `\n`, -1)
+		// 处理变量
+		text = injectVal(text)
+		currTag = fmt.Sprintf(`"%s"`, text)
 	} else {
-		// 内联元素
-		currTag = fmt.Sprintf("<%s>%s</%s>", e.TagName, mySlot, e.TagName)
+		// 内联元素, slot应该放在标签里
+		currTag = fmt.Sprintf(`"<%s>"+%s+"</%s>"`, e.TagName, mySlotCode, e.TagName)
 	}
 
 	return currTag
@@ -83,10 +100,13 @@ type Document struct {
 
 func NewApp() *App {
 	return &App{
-		Components: map[string]Render{
-			"text": texTElement,
-		},
+		Components: map[string]struct{}{},
 	}
+}
+
+func (a *App) Component(name string) {
+	a.Components[name] = struct {
+	}{}
 }
 
 func lookInterface(key string, data interface{}) (desc interface{}, exist bool) {
@@ -108,17 +128,13 @@ func lookInterface(key string, data interface{}) (desc interface{}, exist bool) 
 	return lookInterface(strings.Join(kk[1:], "."), c)
 }
 
-func injectVal(src string, data interface{}) (to string) {
+func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`\{\{.+?\}\}`)
 
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
 
-		desc, ok := lookInterface(key, data)
-		if ok {
-			return fmt.Sprintf("%v", desc)
-		}
-		return ""
+		return fmt.Sprintf(`"+lookInterfaceToStr(data, "%s")+"`, key)
 	})
 	return src
 }

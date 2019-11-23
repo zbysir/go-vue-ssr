@@ -64,7 +64,7 @@ func H(filename string) (*Element, error) {
 			}
 
 			lastNode := stack[len(stack)-1]
-			lastNode.Children = append(lastNode.Children, Element{Text: string(token[:])})
+			lastNode.Children = append(lastNode.Children, Element{Text: string(token[:]), TagName: "__string"})
 			break
 		}
 	}

@@ -2,7 +2,6 @@ package vuessr
 
 import (
 	"encoding/xml"
-	"go.zhuzi.me/go/log"
 )
 
 type TexTElement struct {
@@ -30,17 +29,3 @@ func (e *TexTElement) Set(attrs []xml.Attr) {
 //
 //	return fmt.Sprintf("<p>%v%%s</p>", "1")
 //}
-
-var texTElement Render
-
-func init() {
-	e, err := H(`Z:\golang\go_path\src\github.com\bysir-zl\vue-ssr\example\helloword\text.vue`)
-	if err != nil {
-		panic(err)
-	}
-
-	texTElement = e
-
-	log.Infof("%+v", e)
-
-}

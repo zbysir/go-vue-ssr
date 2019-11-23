@@ -6,12 +6,14 @@ import (
 )
 
 func main() {
-	e, err := vuessr.H(`Z:\golang\go_path\src\github.com\bysir-zl\vue-ssr\example\helloword\helloworld.vue`)
+	e, err := vuessr.H(`Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\helloword\helloworld.vue`)
 	if err != nil {
 		panic(err)
 	}
 
 	app := vuessr.NewApp()
+	app.ComponentFile("text", `Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\helloword\text.vue`)
+
 	str := e.Render(app, map[string]interface{}{
 		"name": "bysir",
 		"sex":  "男",
