@@ -10,3 +10,16 @@ func TestXComponent_main(t *testing.T) {
 	}, "")
 	t.Log(html)
 }
+
+func VForDemo() {
+	res:="div"
+
+	for index, item:=range lookInterfaceToStr(data,"list"){
+		data = map[string]interface{}{
+			"item": item,
+			"index": index,
+		}
+
+		-> 子级
+	}
+}

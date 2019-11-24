@@ -20,6 +20,21 @@ type App struct {
 	Components map[string]struct{} // name=>node
 }
 
+func getVFor(attrs []xml.Attr) (arrayKey, itemKey, indexKey string, exist bool) {
+	for _, v := range attrs {
+		if v.Name.Local == "v-for" {
+			val := v.Value
+
+			ss := strings.Split(val, "in")
+			itemKey = strings.Trim(ss[0], " ")
+			arrayKey = strings.Trim(ss[1], " ")
+			exist = true
+			return
+		}
+	}
+	return
+}
+
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
 // todo 如果将slot改为map[string]string应该就可以实现多个slot.
@@ -32,6 +47,15 @@ type App struct {
 // 每个组件都是一个func或者是一个字符串
 // dataInject:
 func (e *Element) RenderFunc(app *App, slot string) (code string) {
+	// 当然这个组件的代码
+	var eleCode = ""
+
+	// 处理v-for
+	vfArray, vfItem, vfIndex, vfExist := getVFor(e.Attrs)
+	if vfExist {
+
+	}
+
 	mySlotCode := ""
 
 	if len(e.Children) != 0 {
@@ -49,8 +73,6 @@ func (e *Element) RenderFunc(app *App, slot string) (code string) {
 		mySlotCode = `""`
 	}
 
-	var currTag = ""
-
 	// 调用方法
 	_, exist := app.Components[e.TagName]
 	if exist {
@@ -63,26 +85,27 @@ func (e *Element) RenderFunc(app *App, slot string) (code string) {
 		}
 		dataInjectCode += "}"
 
-		currTag = fmt.Sprintf("XComponent_%s(%s, %s)", e.TagName, dataInjectCode, mySlotCode)
+		eleCode = fmt.Sprintf("XComponent_%s(%s, %s)", e.TagName, dataInjectCode, mySlotCode)
 	} else if e.TagName == "template" {
 		// 使用模板
-		currTag = mySlotCode
+		eleCode = mySlotCode
 	} else if e.TagName == "slot" {
 		if slot == "" {
 			slot = `""`
 		}
-		currTag = "slot"
+		eleCode = "slot"
 	} else if e.TagName == "__string" {
+		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
 		// 处理变量
 		text = injectVal(text)
-		currTag = fmt.Sprintf(`"%s"`, text)
+		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
 		// 内联元素, slot应该放在标签里
-		currTag = fmt.Sprintf(`"<%s>"+%s+"</%s>"`, e.TagName, mySlotCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s>"+%s+"</%s>"`, e.TagName, mySlotCode, e.TagName)
 	}
 
-	return currTag
+	return eleCode
 }
 
 func getBind(as []xml.Attr) (bind map[string]string) {

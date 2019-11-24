@@ -20,6 +20,9 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 
 	code := e.RenderFunc(app, "")
 
+	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
+	//code = strings.Replace(code, `"+"`, "", -1)
+
 	return fmt.Sprintf("package %s\n\nfunc XComponent_%s(data map[string]interface{}, slot string)string{return %s}", pkgName, name, code)
 }
 
