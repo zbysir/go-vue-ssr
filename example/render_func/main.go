@@ -8,9 +8,11 @@ import (
 func main() {
 	// run pkg/vuessr/generator_test.go first
 	html := genera.XComponent_helloworld(map[string]interface{}{
-		"name": "bysir",
-		"sex":  "男",
-		"age":  "18",
+		"name":   "bysir",
+		"sex":    "男",
+		"age":    "18",
+		"list":   []interface{}{"1", map[string]interface{}{"a": 1}},
+		"isShow": true,
 	}, "")
 
 	log.Infof("%v", html)

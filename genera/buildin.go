@@ -1,6 +1,7 @@
 package genera
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"regexp"
@@ -29,7 +30,101 @@ func lookInterfaceToStr(data interface{}, key string) (desc string) {
 		return ""
 	}
 
-	return fmt.Sprintf("%v", m)
+	return interface2Str(m)
+}
+
+func lookInterfaceToBool(data interface{}, key string) (desc bool) {
+	m, ok := shouldLookInterface(data, key)
+	if !ok {
+		return false
+	}
+
+	return interface2Bool(m)
+}
+
+// 扩展map, 实现作用域
+func extendMap(src map[string]interface{}, ext map[string]interface{}) (desc map[string]interface{}) {
+	//desc = make(map[string]interface{}, len(src))
+	for i, v := range ext {
+		src[i] = v
+	}
+	return src
+}
+
+func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
+	m, ok := shouldLookInterface(data, key)
+	if !ok {
+		return nil
+	}
+
+	return interface2Slice(m)
+}
+
+func interface2Str(s interface{}) (d string) {
+	switch a := s.(type) {
+	case map[string]interface{}:
+		bs, _ := json.Marshal(a)
+		return string(bs)
+	case int, string, float64:
+		return fmt.Sprintf("%v", a)
+	}
+
+	return
+}
+
+// 字符串false,0 会被认定为false
+func interface2Bool(s interface{}) (d bool) {
+	if s == nil {
+		return false
+	}
+	switch a := s.(type) {
+	case bool:
+		return a
+	case int, float64, float32, int8, int64, int32, int16:
+		return a != 0
+	case string:
+		return a != "" && a != "false" && a != "0"
+	}
+
+	return
+}
+
+func interface2Slice(s interface{}) (d []interface{}) {
+	switch a := s.(type) {
+	case []interface{}:
+		return a
+	case []map[string]interface{}:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int64:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int32:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []string:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []float64:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	}
+	return
 }
 
 func shouldLookInterface(data interface{}, key string) (desc interface{}, exist bool) {
@@ -64,4 +159,11 @@ func injectVal(src string, data interface{}) (to string) {
 		return ""
 	})
 	return src
+}
+
+// 判断, 支持简单的表达式:
+// && || ! (并或非)
+// isShow && !isHide
+func condition(data map[string]interface{}, exp string) bool {
+	return lookInterfaceToBool(data, exp)
 }

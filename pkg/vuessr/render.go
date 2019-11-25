@@ -20,21 +20,6 @@ type App struct {
 	Components map[string]struct{} // name=>node
 }
 
-func getVFor(attrs []xml.Attr) (arrayKey, itemKey, indexKey string, exist bool) {
-	for _, v := range attrs {
-		if v.Name.Local == "v-for" {
-			val := v.Value
-
-			ss := strings.Split(val, "in")
-			itemKey = strings.Trim(ss[0], " ")
-			arrayKey = strings.Trim(ss[1], " ")
-			exist = true
-			return
-		}
-	}
-	return
-}
-
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
 // todo 如果将slot改为map[string]string应该就可以实现多个slot.
@@ -45,22 +30,16 @@ func getVFor(attrs []xml.Attr) (arrayKey, itemKey, indexKey string, exist bool) 
 //
 
 // 每个组件都是一个func或者是一个字符串
-// dataInject:
-func (e *Element) RenderFunc(app *App, slot string) (code string) {
-	// 当然这个组件的代码
+// slot: 子级代码
+func (e *Element) RenderFunc(app *App) (code string) {
+	// 最终生成的代码是 openCode + childCode + closeCode
 	var eleCode = ""
-
-	// 处理v-for
-	vfArray, vfItem, vfIndex, vfExist := getVFor(e.Attrs)
-	if vfExist {
-
-	}
 
 	mySlotCode := ""
 
 	if len(e.Children) != 0 {
 		for _, v := range e.Children {
-			sr := v.RenderFunc(app, slot)
+			sr := v.RenderFunc(app)
 			if mySlotCode == "" {
 				mySlotCode += sr
 			} else {
@@ -90,9 +69,6 @@ func (e *Element) RenderFunc(app *App, slot string) (code string) {
 		// 使用模板
 		eleCode = mySlotCode
 	} else if e.TagName == "slot" {
-		if slot == "" {
-			slot = `""`
-		}
 		eleCode = "slot"
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
@@ -104,6 +80,10 @@ func (e *Element) RenderFunc(app *App, slot string) (code string) {
 		// 内联元素, slot应该放在标签里
 		eleCode = fmt.Sprintf(`"<%s>"+%s+"</%s>"`, e.TagName, mySlotCode, e.TagName)
 	}
+
+	// 处理指令 如v-for
+	ds := getDirectives(e.Attrs)
+	eleCode = ds.Exec(e, eleCode)
 
 	return eleCode
 }

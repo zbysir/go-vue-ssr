@@ -1,3 +1,8 @@
 <template>
-    <p> <slot></slot>age: {{age}} sex: {{sex}} </p>
+    <p>
+        age: {{age}} sex: {{sex}}
+        <vFor v-bind:list="list">
+            <slot></slot>
+        </vFor>
+    </p>
 </template>

@@ -2,7 +2,6 @@ package vuessr
 
 import (
 	"fmt"
-	"go.zhuzi.me/go/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,7 +17,7 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 		panic(err)
 	}
 
-	code := e.RenderFunc(app, "")
+	code := e.RenderFunc(app)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
 	//code = strings.Replace(code, `"+"`, "", -1)
@@ -40,7 +39,6 @@ func genAllFile(src, desc string) (err error) {
 	if err != nil {
 		return
 	}
-	log.Infof("%v", del)
 
 	for _, v := range del {
 		err = os.Remove(v)
