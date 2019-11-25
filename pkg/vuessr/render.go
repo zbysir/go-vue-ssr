@@ -3,6 +3,7 @@ package vuessr
 import (
 	"encoding/xml"
 	"fmt"
+	"go.zhuzi.me/go/log"
 	"regexp"
 	"strings"
 )
@@ -10,10 +11,6 @@ import (
 type Render interface {
 	Render(app *App, data interface{}, slot string) string
 	RenderFunc(app *App, slot string) (function string)
-}
-
-type Elementer interface {
-	Set(attrs []xml.Attr)
 }
 
 type App struct {
@@ -31,8 +28,7 @@ type App struct {
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
-func (e *Element) RenderFunc(app *App) (code string) {
-	// 最终生成的代码是 openCode + childCode + closeCode
+func (e *VueElement) RenderFunc(app *App) (code string) {
 	var eleCode = ""
 
 	mySlotCode := ""
@@ -56,7 +52,7 @@ func (e *Element) RenderFunc(app *App) (code string) {
 	_, exist := app.Components[e.TagName]
 	if exist {
 		// 从bind中读取数据, 做为子级数据
-		bind := getBind(e.Attrs)
+		bind := e.Props
 		var dataInjectCode = "map[string]interface{}"
 		dataInjectCode += "{"
 		for k, v := range bind {
@@ -77,13 +73,15 @@ func (e *Element) RenderFunc(app *App) (code string) {
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
+		log.Info(e.Attrs)
+		attrs := attr(e.Attrs, e.Class)
+		attrs = injectVal(attrs)
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s>"+%s+"</%s>"`, e.TagName, mySlotCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, attrs, mySlotCode, e.TagName)
 	}
 
 	// 处理指令 如v-for
-	ds := getDirectives(e.Attrs)
-	eleCode = ds.Exec(e, eleCode)
+	eleCode = e.Directives.Exec(e, eleCode)
 
 	return eleCode
 }
@@ -96,9 +94,6 @@ func getBind(as []xml.Attr) (bind map[string]string) {
 		}
 	}
 	return
-}
-
-type Document struct {
 }
 
 func NewApp() *App {

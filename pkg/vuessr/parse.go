@@ -11,9 +11,10 @@ type Element struct {
 	Text     string // 只是字
 	TagName  string
 	Attrs    []xml.Attr
-	Children []Element
+	Children []*Element
 }
 
+// parse HTML
 func H(filename string) (*Element, error) {
 	file, err := os.Open(filename)
 
@@ -41,7 +42,7 @@ func H(filename string) (*Element, error) {
 				"",
 				token.Name.Local,
 				token.Attr,
-				[]Element{},
+				[]*Element{},
 			})
 
 			break
@@ -54,7 +55,7 @@ func H(filename string) (*Element, error) {
 			}
 
 			preNode := stack[len(stack)-1]
-			preNode.Children = append(preNode.Children, *currentNode)
+			preNode.Children = append(preNode.Children, currentNode)
 			currentElement = preNode
 
 			break
@@ -64,7 +65,7 @@ func H(filename string) (*Element, error) {
 			}
 
 			lastNode := stack[len(stack)-1]
-			lastNode.Children = append(lastNode.Children, Element{Text: string(token[:]), TagName: "__string"})
+			lastNode.Children = append(lastNode.Children, &Element{Text: string(token[:]), TagName: "__string"})
 			break
 		}
 	}

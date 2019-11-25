@@ -12,15 +12,14 @@ import (
 // 目的是为了解决递归渲染节点造成的性能问题, 不过这是一个难题, 先尝试, 不行就算了.
 
 func genComponentRenderFunc(app *App, pkgName, name string, file string) string {
-	e, err := H(file)
+	ve, err := ParseVue(file)
 	if err != nil {
 		panic(err)
 	}
-
-	code := e.RenderFunc(app)
+	code := ve.RenderFunc(app)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
-	//code = strings.Replace(code, `"+"`, "", -1)
+	code = strings.Replace(code, `"+"`, "", -1)
 
 	return fmt.Sprintf("package %s\n\nfunc XComponent_%s(data map[string]interface{}, slot string)string{return %s}", pkgName, name, code)
 }

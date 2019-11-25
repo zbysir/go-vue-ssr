@@ -1,5 +1,5 @@
 <template>
-    <div class="VueToNuxtLogo">
+    <div v-if="isShow" class="VueToNuxtLogo">
         <div class="Triangle Triangle--two">
             我是一个DIV
         </div>

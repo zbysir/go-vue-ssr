@@ -12,6 +12,7 @@ import (
 // todo) 如果style/class没有冲突, 则还可以优化
 // tip: 纯静态的attr应该在编译时期就生成字符串, 而不应调用这个
 func mixinAttr(attr []xml.Attr, data interface{}) (str string) {
+
 	return
 }
 

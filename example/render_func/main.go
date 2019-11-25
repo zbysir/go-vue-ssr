@@ -12,7 +12,7 @@ func main() {
 		"sex":    "男",
 		"age":    "18",
 		"list":   []interface{}{"1", map[string]interface{}{"a": 1}},
-		"isShow": true,
+		"isShow": "1",
 	}, "")
 
 	log.Infof("%v", html)

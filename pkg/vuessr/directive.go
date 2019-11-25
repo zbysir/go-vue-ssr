@@ -7,7 +7,7 @@ import (
 )
 
 type Directive interface {
-	Exec(e *Element, code string) string
+	Exec(e *VueElement, code string) string
 }
 
 type Directives map[string]Directive
@@ -28,7 +28,7 @@ func getDirectives(attrs []xml.Attr) (ds Directives) {
 	return
 }
 
-func (d Directives) Exec(e *Element, code string) string {
+func (d Directives) Exec(e *VueElement, code string) string {
 	for _, v := range d {
 		code = v.Exec(e, code)
 	}
@@ -41,7 +41,7 @@ type VForDirective struct {
 	indexKey string
 }
 
-func (e VForDirective) Exec(el *Element, code string) string {
+func (e VForDirective) Exec(el *VueElement, code string) string {
 	vfArray := e.arrayKey
 	vfItem := e.itemKey
 	vfIndex := e.indexKey
@@ -68,7 +68,7 @@ type VIfDirective struct {
 	condition string
 }
 
-func (e VIfDirective) Exec(el *Element, code string) string {
+func (e VIfDirective) Exec(el *VueElement, code string) string {
 	// 将自己for
 	return fmt.Sprintf(`
 func ()string{
