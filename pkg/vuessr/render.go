@@ -3,7 +3,6 @@ package vuessr
 import (
 	"encoding/xml"
 	"fmt"
-	"go.zhuzi.me/go/log"
 	"regexp"
 	"strings"
 )
@@ -73,17 +72,21 @@ func (e *VueElement) RenderFunc(app *App) (code string) {
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
-		log.Info(e.Attrs)
-		attrs := attr(e.Attrs, e.Class)
+		attrs := genAttr(e)
 		attrs = injectVal(attrs)
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, attrs, mySlotCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, encodeString(attrs), mySlotCode, e.TagName)
 	}
 
 	// 处理指令 如v-for
 	eleCode = e.Directives.Exec(e, eleCode)
 
 	return eleCode
+}
+
+// 转义字符串中的", 以免和go代码中的"冲突
+func encodeString(src string) string {
+	return strings.Replace(src, `"`, `\"`, -1)
 }
 
 func getBind(as []xml.Attr) (bind map[string]string) {
@@ -131,10 +134,36 @@ func injectVal(src string) (to string) {
 
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
+		// 处理表达式
 
 		return fmt.Sprintf(`"+lookInterfaceToStr(data, "%s")+"`, key)
 	})
+
 	return src
+}
+
+// 处理表达式, 将js表达式处理为go
+// 可以用在 v-if, v-bind:, {{}} 中.
+// - "key": 直接是一个变量
+// - "key1 && key2" / "!key": 运算符
+// - "{key: val && val2}" // 对象, 只支持一维的kv
+// - "[{key: val}]" // 对象数组, 只支持一维kv
+// ps: 可以用AST做, 但是有些复杂并且笔者不会, 所以用最笨的方式做吧.
+// (和小程序模板一样, 我们只需要支持上述常用的语法就行了)
+func parseJsCode(src string) (goCode string) {
+	src = strings.Trim(src, " ")
+	// 只有一个变量
+	if !strings.ContainsAny(src, "!&=}[") {
+		return fmt.Sprintf(`lookInterfaceToStr(data, "%s")`, src)
+	}
+
+
+
+	// 只有一个变量
+	if strings.Contains(src, "{") {
+
+	}
+	return
 }
 
 //type Node struct {
