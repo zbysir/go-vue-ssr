@@ -1,7 +1,6 @@
 package vuessr
 
 import (
-	"encoding/xml"
 	"fmt"
 	"regexp"
 	"strings"
@@ -89,16 +88,6 @@ func encodeString(src string) string {
 	return strings.Replace(src, `"`, `\"`, -1)
 }
 
-func getBind(as []xml.Attr) (bind map[string]string) {
-	bind = map[string]string{}
-	for _, v := range as {
-		if v.Name.Space == "v-bind" {
-			bind[v.Name.Local] = v.Value
-		}
-	}
-	return
-}
-
 func NewApp() *App {
 	return &App{
 		Components: map[string]struct{}{},
@@ -110,31 +99,12 @@ func (a *App) Component(name string) {
 	}{}
 }
 
-func lookInterface(key string, data interface{}) (desc interface{}, exist bool) {
-	m, ok := data.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-
-	kk := strings.Split(key, ".")
-	c, ok := m[kk[0]]
-	if len(kk) == 1 {
-		if !ok {
-			return nil, false
-		}
-
-		return c, true
-	}
-
-	return lookInterface(strings.Join(kk[1:], "."), c)
-}
-
 func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`\{\{.+?\}\}`)
 
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
-		// 处理表达式
+		// todo 处理js表达式
 
 		return fmt.Sprintf(`"+lookInterfaceToStr(data, "%s")+"`, key)
 	})
@@ -150,14 +120,13 @@ func injectVal(src string) (to string) {
 // - "[{key: val}]" // 对象数组, 只支持一维kv
 // ps: 可以用AST做, 但是有些复杂并且笔者不会, 所以用最笨的方式做吧.
 // (和小程序模板一样, 我们只需要支持上述常用的语法就行了)
+// 先不使用AST, 有点麻烦, 并不影响使用.
 func parseJsCode(src string) (goCode string) {
 	src = strings.Trim(src, " ")
 	// 只有一个变量
 	if !strings.ContainsAny(src, "!&=}[") {
 		return fmt.Sprintf(`lookInterfaceToStr(data, "%s")`, src)
 	}
-
-
 
 	// 只有一个变量
 	if strings.Contains(src, "{") {
