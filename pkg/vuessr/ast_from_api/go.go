@@ -5,7 +5,8 @@ import (
 )
 
 // 生成go代码
-func JsCode2Go(code string) (goCode string, err error) {
+// dataKey: 默认为options.data
+func JsCode2Go(code string, dataKey string) (goCode string, err error) {
 	// 用code包裹的原因是让"{x: 1}"这样的语法解析成对象, 而不是label
 	code = fmt.Sprintf("(%s)", code)
 	node, err := GetAST(code)
@@ -13,11 +14,11 @@ func JsCode2Go(code string) (goCode string, err error) {
 		return
 	}
 
-	goCode = genGoCodeByNode(node)
+	goCode = genGoCodeByNode(node, dataKey)
 	return
 }
 
-func genGoCodeByNode(node Node) (goCode string) {
+func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	switch t := node.Assert().(type) {
 	case Program:
 		x := ``
@@ -25,26 +26,26 @@ func genGoCodeByNode(node Node) (goCode string) {
 			if x != "" {
 				x += `+`
 			}
-			x += fmt.Sprintf(`%s`, genGoCodeByNode(v))
+			x += fmt.Sprintf(`%s`, genGoCodeByNode(v, dataKey))
 		}
 
 		return x
 	case ExpressionStatement:
-		return genGoCodeByNode(t.Expression)
+		return genGoCodeByNode(t.Expression, dataKey)
 	case Identifier:
-		return fmt.Sprintf(`lookInterface(data, "%s")`, t.Name)
+		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
 	case Literal:
 		return fmt.Sprintf(`%s`, t.Raw)
 	case LogicalExpression:
-		left := genGoCodeByNode(t.Left)
-		right := genGoCodeByNode(t.Right)
+		left := genGoCodeByNode(t.Left, dataKey)
+		right := genGoCodeByNode(t.Right, dataKey)
 		return fmt.Sprintf(`interfaceToBool(%s) %s interfaceToBool(%s)`, left, t.Operator, right)
 	case BinaryExpression:
-		left := genGoCodeByNode(t.Left)
-		right := genGoCodeByNode(t.Right)
+		left := genGoCodeByNode(t.Left, dataKey)
+		right := genGoCodeByNode(t.Right, dataKey)
 		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, t.Operator, right)
 	case UnaryExpression:
-		arg := genGoCodeByNode(t.Argument)
+		arg := genGoCodeByNode(t.Argument, dataKey)
 		return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
 	case ObjectExpression:
 		// 对象, 翻译成map[string]interface{}
@@ -53,7 +54,7 @@ func genGoCodeByNode(node Node) (goCode string) {
 		for _, v := range t.Properties {
 			p := v.Assert().(Property)
 			k := p.GetKey()
-			valueCode := genGoCodeByNode(p.Value)
+			valueCode := genGoCodeByNode(p.Value, dataKey)
 			mapCode += fmt.Sprintf(`"%s": %s,`, k, valueCode)
 		}
 		mapCode += "}"

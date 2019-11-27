@@ -7,33 +7,25 @@ import (
 	"strings"
 )
 
+// 指令:
+// 指令会影响当前节点的渲染, 返回修改后的go代码
+// 有一个特殊的指令: v-slot, 会将节点代码改为空, 并且写入到namedSlotCode里.
 type Directive interface {
-	Exec(e *VueElement, code string) string
+	Exec(e *VueElement, code string) (resCode string, namedSlotCode map[string]string)
 }
 
 type Directives map[string]Directive
 
-func getDirectives(attrs []xml.Attr) (ds Directives) {
-	ds = Directives{}
-	for _, v := range attrs {
-		if strings.HasPrefix(v.Name.Local, "v-") {
-			name := v.Name.Local
-			switch name {
-			case "v-for":
-				ds[name] = getVForDirective(v.Value)
-			case "v-if":
-				ds[name] = getVIfDirective(v.Value)
-			}
+func (d Directives) Exec(e *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+	namedSlotCode = map[string]string{}
+	for _, v := range d {
+		var n2 map[string]string
+		code, n2 = v.Exec(e, code)
+		for k, v := range n2 {
+			namedSlotCode[k] = v
 		}
 	}
-	return
-}
-
-func (d Directives) Exec(e *VueElement, code string) string {
-	for _, v := range d {
-		code = v.Exec(e, code)
-	}
-	return code
+	return code, namedSlotCode
 }
 
 type VForDirective struct {
@@ -42,35 +34,35 @@ type VForDirective struct {
 	indexKey string
 }
 
-func (e VForDirective) Exec(el *VueElement, code string) string {
+func (e VForDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
 	vfArray := e.arrayKey
 	vfItem := e.itemKey
 	vfIndex := e.indexKey
-	// 将自己for
+	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
 	return fmt.Sprintf(`
 func ()string{
   var c = ""
 
-  for index, item := range lookInterfaceToSlice(data, "%s") {
-    c += func(data map[string]interface{}) string{
-        data = extendMap(map[string]interface{}{
+  for index, item := range lookInterfaceToSlice(%s, "%s") {
+    c += func(xdata map[string]interface{}) string{
+        %s := extendMap(map[string]interface{}{
           "%s": index,
           "%s": item,
-        }, data)
+        }, xdata)
 
         return %s
     }(data)
   }
 return c
-}()`, vfArray, vfIndex, vfItem, code)
+}()`, DataKey, vfArray, DataKey, vfIndex, vfItem, code), nil
 }
 
 type VIfDirective struct {
 	condition string
 }
 
-func (e VIfDirective) Exec(el *VueElement, childCode string) string {
-	condition, err := ast_from_api.JsCode2Go(e.condition)
+func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+	condition, err := ast_from_api.JsCode2Go(e.condition, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -79,11 +71,22 @@ func (e VIfDirective) Exec(el *VueElement, childCode string) string {
 func ()string{
   if interfaceToBool(%s) {return %s}
   return ""
-}()`, condition, childCode)
+}()`, condition, code), nil
 }
 
-func getVForDirective(raw string) (d VForDirective) {
-	val := raw
+type VSlotDirective struct {
+	slotName string
+}
+
+func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+	return "", map[string]string{
+		e.slotName: code,
+	}
+}
+
+// raw: 指令的值
+func getVForDirective(attr xml.Attr) (d VForDirective) {
+	val := attr.Value
 
 	ss := strings.Split(val, " in ")
 	d.arrayKey = strings.Trim(ss[1], " ")
@@ -104,7 +107,14 @@ func getVForDirective(raw string) (d VForDirective) {
 	return
 }
 
-func getVIfDirective(raw string) (d VIfDirective) {
-	d.condition = strings.Trim(raw, " ")
+// raw: 指令的值
+func getVIfDirective(attr xml.Attr) (d VIfDirective) {
+	d.condition = strings.Trim(attr.Value, " ")
+	return
+}
+
+// slot可以传递props, 为了解决这个问题, 可以使用func XSlot(slotCode map[string]string, name string, propsKey string, props map[string]interface{}){}方法来实现
+func getVSlotDirective(attr xml.Attr) (d VSlotDirective) {
+	d.slotName = attr.Name.sp
 	return
 }

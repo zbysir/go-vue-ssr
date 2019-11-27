@@ -8,6 +8,7 @@ import (
 // 处理静态的attr, 如class/style
 func genAttr(e *VueElement) string {
 	var a = ""
+	//if e.Props
 	// 类
 	if len(e.Class) != 0 {
 		a += fmt.Sprintf(`class="%s"`, strings.Join(e.Class, " "))

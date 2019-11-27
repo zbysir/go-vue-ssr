@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+// 渲染组件需要的结构
+type Options struct {
+	Props     map[string]interface{} // 上级传递的 数据(包含了class和style)
+	Attrs     map[string]string      // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Class     []string               // 静态class, 只会作用在root节点
+	Style     map[string]string      // 静态style, 只会作用在root节点
+	StyleKeys []string               // 样式的key, 用来保证顺序, 只会作用在root节点
+	Slot      map[string]string      // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
+}
+
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
 // tip: 纯静态的attr应该在编译时期就生成字符串, 而不应调用这个
@@ -68,11 +78,11 @@ func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
 
 func interfaceToStr(s interface{}) (d string) {
 	switch a := s.(type) {
-	case map[string]interface{}:
-		bs, _ := json.Marshal(a)
-		return string(bs)
 	case int, string, float64:
 		return fmt.Sprintf("%v", a)
+	default:
+		bs, _ := json.Marshal(a)
+		return string(bs)
 	}
 
 	return

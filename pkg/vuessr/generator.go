@@ -16,12 +16,16 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 	if err != nil {
 		panic(err)
 	}
-	code := ve.RenderFunc(app)
+	code, _ := ve.RenderFunc(app)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
 	code = strings.Replace(code, `"+"`, "", -1)
 
-	return fmt.Sprintf("package %s\n\nfunc XComponent_%s(data map[string]interface{}, slot string)string{return %s}", pkgName, name, code)
+	return fmt.Sprintf("package %s\n\n"+
+		"func XComponent_%s(options *Options)string{\n"+
+		"%s:= %s\n"+
+		"return %s"+
+		"}", pkgName, name, DataKey, PropsKey, code)
 }
 
 // 生成并写入文件夹

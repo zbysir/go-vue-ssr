@@ -16,9 +16,27 @@
         v-bind:data="{a: 1}"
         v-bind:list="list">
       我的信息:
-      <span v-for="item in list">
+      <div>-- defaultSlot --</div>
+
+      <div v-for="item in list">
         {{item}}
-      </span>
+      </div>
+
+      <div>-- vFor --</div>
+      <vFor v-bind:list="list">
+      </vFor>
+      <div>-- /vFor --</div>
+
+      <div>-- /defaultSlot --</div>
+    </text>
+
+    <text>
+
+      <div v-slot:abc>
+        <div>-- 具名slot --</div>
+        我是具名slot内容
+        <div>-- /具名slot --</div>
+      </div>
     </text>
 
     <div v-if="!isShow">显示隐藏</div>

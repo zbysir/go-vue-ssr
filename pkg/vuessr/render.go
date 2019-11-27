@@ -16,6 +16,97 @@ type App struct {
 	Components map[string]struct{} // name=>node
 }
 
+type OptionsGen struct {
+	Props         map[string]string // 上级传递的 数据(包含了class和style)
+	Attrs         map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Class         []string          // 静态class
+	Style         map[string]string // 静态style
+	StyleKeys     []string          // 样式的key, 用来保证顺序
+	Slot          map[string]string // 插槽节点
+	ChildrenCode  string            // 子节点code, 用于默认的插槽
+	NamedSlotCode map[string]string // 具名插槽
+}
+
+func mapStringToGoCode(m map[string]string) string {
+	c := "map[string]string"
+	c += "{"
+	for k, v := range m {
+		c += fmt.Sprintf(`"%s": "%s",`, k, v)
+	}
+	c += "}"
+
+	return c
+}
+
+func mapCodeToGoCode(m map[string]string) string {
+	c := "map[string]string"
+	c += "{"
+	for k, v := range m {
+		c += fmt.Sprintf(`"%s": %s,`, k, v)
+	}
+	c += "}"
+
+	return c
+}
+
+func sliceToGoCode(m []string) string {
+	c := "[]string"
+	c += "{"
+	for _, v := range m {
+		c += fmt.Sprintf(`"%s", `, v)
+	}
+	c += "}"
+
+	return c
+}
+
+func (o *OptionsGen) ToGoCode() string {
+	c := "&Options{"
+	if len(o.Props) != 0 {
+		props := "Props: "
+		props += "map[string]interface{}"
+		props += "{"
+		for k, v := range o.Props {
+			valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
+			if err != nil {
+				panic(err)
+			}
+			props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+		}
+		props += "}"
+		c += props + ",\n"
+	}
+	if len(o.Attrs) != 0 {
+		c += fmt.Sprintf("Attrs: %s,\n", mapStringToGoCode(o.Attrs))
+	}
+	if len(o.Class) != 0 {
+		c += fmt.Sprintf("Class: %s,\n", sliceToGoCode(o.Class))
+	}
+	if len(o.Style) != 0 {
+		c += fmt.Sprintf("Style: %s,\n", mapStringToGoCode(o.Style))
+	}
+	if len(o.StyleKeys) != 0 {
+		c += fmt.Sprintf("StyleKeys: %s,\n", sliceToGoCode(o.StyleKeys))
+	}
+	slot := map[string]string{
+		"default": o.ChildrenCode,
+	}
+	for k, v := range o.NamedSlotCode {
+		slot[k] = v
+	}
+	c += fmt.Sprintf("Slot: %s,\n", mapCodeToGoCode(slot))
+
+	c += "}"
+	return c
+}
+
+// 生成代码中的key
+const (
+	DataKey  = "data" // 变量作用域的key, 相当于js的this.
+	PropsKey = "options.Props"
+	SlotKey  = "options.Slot"
+)
+
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
 // todo 如果将slot改为map[string]string应该就可以实现多个slot.
@@ -27,48 +118,54 @@ type App struct {
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
-func (e *VueElement) RenderFunc(app *App) (code string) {
+func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
-	mySlotCode := ""
+	childrenCode := ""
 
+	namedSlotCode = map[string]string{}
 	if len(e.Children) != 0 {
 		for _, v := range e.Children {
-			sr := v.RenderFunc(app)
-			if mySlotCode == "" {
-				mySlotCode += sr
+			childCode, childNamedSlotCode := v.RenderFunc(app)
+			if childrenCode == "" {
+				childrenCode += childCode
 			} else {
-				mySlotCode += "+" + sr
+				childrenCode += "+" + childCode
+			}
+
+			for k, v := range childNamedSlotCode {
+				namedSlotCode[k] = v
 			}
 		}
 	}
 
-	if mySlotCode == "" {
-		mySlotCode = `""`
+	if childrenCode == "" {
+		childrenCode = `""`
 	}
 
-	// 调用方法
+	// 调用组件
 	_, exist := app.Components[e.TagName]
 	if exist {
-		// 从bind中读取数据, 做为子级数据
-		bind := e.Props
-		var dataInjectCode = "map[string]interface{}"
-		dataInjectCode += "{"
-		for k, v := range bind {
-			valueCode, err := ast_from_api.JsCode2Go(v)
-			if err != nil {
-				panic(err)
-			}
-			dataInjectCode += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+		options := OptionsGen{
+			StyleKeys:     e.StyleKeys,
+			Class:         e.Class,
+			Attrs:         e.Attrs,
+			Props:         e.Props,
+			Style:         e.Style,
+			ChildrenCode:  childrenCode,
+			NamedSlotCode: namedSlotCode,
 		}
-		dataInjectCode += "}"
-
-		eleCode = fmt.Sprintf("XComponent_%s(%s, %s)", e.TagName, dataInjectCode, mySlotCode)
+		optionsCode := options.ToGoCode()
+		eleCode = fmt.Sprintf("XComponent_%s(%s)", e.TagName, optionsCode)
 	} else if e.TagName == "template" {
-		// 使用模板
-		eleCode = mySlotCode
+		// 使用子级
+		eleCode = childrenCode
 	} else if e.TagName == "slot" {
-		eleCode = "slot"
+		name := e.Attrs["name"]
+		if name == "" {
+			name = "default"
+		}
+		eleCode = fmt.Sprintf(`%s["%s"]`, SlotKey, name)
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
@@ -78,14 +175,19 @@ func (e *VueElement) RenderFunc(app *App) (code string) {
 	} else {
 		attrs := genAttr(e)
 		attrs = injectVal(attrs)
+		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, encodeString(attrs), mySlotCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, encodeString(attrs), childrenCode, e.TagName)
 	}
 
 	// 处理指令 如v-for
-	eleCode = e.Directives.Exec(e, eleCode)
 
-	return eleCode
+	eleCode ,namedSlotCode2:= e.Directives.Exec(e, eleCode)
+	for i,v:=range namedSlotCode2{
+		namedSlotCode[i] =v
+	}
+
+	return eleCode, namedSlotCode
 }
 
 // 转义字符串中的", 以免和go代码中的"冲突
@@ -111,7 +213,7 @@ func injectVal(src string) (to string) {
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
 
-		goCode, err := ast_from_api.JsCode2Go(key)
+		goCode, err := ast_from_api.JsCode2Go(key, DataKey)
 		if err != nil {
 			panic(err)
 		}
