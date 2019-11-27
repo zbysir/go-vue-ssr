@@ -2,6 +2,7 @@ package vuessr
 
 import (
 	"fmt"
+	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
 	"regexp"
 	"strings"
 )
@@ -54,7 +55,11 @@ func (e *VueElement) RenderFunc(app *App) (code string) {
 		var dataInjectCode = "map[string]interface{}"
 		dataInjectCode += "{"
 		for k, v := range bind {
-			dataInjectCode += fmt.Sprintf(`"%s": lookInterface(data, "%s"),`, k, v)
+			valueCode, err := ast_from_api.JsCode2Go(v)
+			if err != nil {
+				panic(err)
+			}
+			dataInjectCode += fmt.Sprintf(`"%s": %s,`, k, valueCode)
 		}
 		dataInjectCode += "}"
 
@@ -99,76 +104,19 @@ func (a *App) Component(name string) {
 	}{}
 }
 
+// 处理 {{}} 变量
 func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`\{\{.+?\}\}`)
 
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
-		// todo 处理js表达式
 
-		return fmt.Sprintf(`"+lookInterfaceToStr(data, "%s")+"`, key)
+		goCode, err := ast_from_api.JsCode2Go(key)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf(`"+interfaceToStr(%s)+"`, goCode)
 	})
 
 	return src
 }
-
-// 处理表达式, 将js表达式处理为go
-// 可以用在 v-if, v-bind:, {{}} 中.
-// - "key": 直接是一个变量
-// - "key1 && key2" / "!key": 运算符
-// - "{key: val && val2}" // 对象, 只支持一维的kv
-// - "[{key: val}]" // 对象数组, 只支持一维kv
-// ps: 可以用AST做, 但是有些复杂并且笔者不会, 所以用最笨的方式做吧.
-// (和小程序模板一样, 我们只需要支持上述常用的语法就行了)
-// 先不使用AST, 有点麻烦, 并不影响使用.
-func parseJsCode(src string) (goCode string) {
-	src = strings.Trim(src, " ")
-	// 只有一个变量
-	if !strings.ContainsAny(src, "!&=}[") {
-		return fmt.Sprintf(`lookInterfaceToStr(data, "%s")`, src)
-	}
-
-	// 只有一个变量
-	if strings.Contains(src, "{") {
-
-	}
-	return
-}
-
-//type Node struct {
-//	Components map[string]interface{} // name=>node
-//	Ctx interface{}
-//}
-//
-//func (r *Render) renderNode(node interface{}, ctx interface{}) (str string) {
-//	switch n := node.(type) {
-//	case *Element:
-//		ch := ""
-//		if len(n.Children) != 0 {
-//			for _, v := range n.Children {
-//				sr := r.renderNode(v, ctx)
-//				ch += sr
-//			}
-//		}
-//
-//		currNode := r.renderTag(n.TagName, ctx)
-//
-//		str = fmt.Sprintf(currNode, ch)
-//	case string:
-//		str = n
-//	default:
-//		panic(n)
-//	}
-//
-//	return
-//}
-//
-//func (r *Render) renderTag(tagName string, ctx interface{}) (h string) {
-//	node, exist := r.Components[tagName]
-//	if exist {
-//		h = r.renderNode(node, ctx)
-//	} else {
-//		h = fmt.Sprintf("<%s>%%s</%s>", tagName, tagName)
-//	}
-//	return
-//}

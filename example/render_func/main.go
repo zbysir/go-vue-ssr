@@ -14,7 +14,7 @@ func main() {
 			"sex":    "男",
 			"age":    "18",
 			"list":   []interface{}{"1", map[string]interface{}{"a": 1}},
-			"isShow": "1",
+			"isShow": true,
 		}, "")
 		w.Write([]byte(html))
 

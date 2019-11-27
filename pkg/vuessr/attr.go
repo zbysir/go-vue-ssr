@@ -2,7 +2,6 @@ package vuessr
 
 import (
 	"fmt"
-	"go.zhuzi.me/go/log"
 	"strings"
 )
 
@@ -20,7 +19,6 @@ func genAttr(e *VueElement) string {
 
 	// 样式
 	if len(e.Style) != 0 {
-		log.Infof("%+v", e.Style)
 		if a != "" {
 			a += " "
 		}

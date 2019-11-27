@@ -7,17 +7,21 @@
       我是一个DIV
     </div>
 
-    name: {{name}}
+    name: {{name + " " + name}}
     info:
 
-    <text v-bind:age="age" v-bind:sex="sex" v-bind:list="list">
+    <text
+        v-bind:age="age"
+        v-bind:sex="sex"
+        v-bind:data="{a: 1}"
+        v-bind:list="list">
       我的信息:
       <span v-for="item in list">
         {{item}}
       </span>
     </text>
 
-    <div v-if="isShow">显示隐藏</div>
+    <div v-if="!isShow">显示隐藏</div>
   </div>
 </template>
 

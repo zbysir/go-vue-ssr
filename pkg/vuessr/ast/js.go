@@ -80,11 +80,14 @@ type Parser struct {
 
 func (p *Parser) getWord() (word string, l int){
 	for {
-		if p.pos
+		if p.pos>=len(p.code){
+			break
+		}
+		curr:=p.code[p.pos]
+		// ttodo
 	}
 	return
 }
-
 
 func parseExpression(code string) (es []Expression, err error) {
 

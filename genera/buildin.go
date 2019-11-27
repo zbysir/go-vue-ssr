@@ -31,16 +31,21 @@ func lookInterfaceToStr(data interface{}, key string) (desc string) {
 		return ""
 	}
 
-	return interface2Str(m)
+	return interfaceToStr(m)
 }
 
-func lookInterfaceToBool(data interface{}, key string) (desc bool) {
+func lookInterfaceToBool(data interface{}, key string, re ...bool) (desc bool) {
 	m, ok := shouldLookInterface(data, key)
 	if !ok {
-		return false
+		desc = false
+	} else {
+		desc = interfaceToBool(m)
 	}
 
-	return interface2Bool(m)
+	if len(re) != 0 && re[0] {
+		desc = !desc
+	}
+	return
 }
 
 // 扩展map, 实现作用域
@@ -61,7 +66,7 @@ func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
 	return interface2Slice(m)
 }
 
-func interface2Str(s interface{}) (d string) {
+func interfaceToStr(s interface{}) (d string) {
 	switch a := s.(type) {
 	case map[string]interface{}:
 		bs, _ := json.Marshal(a)
@@ -74,7 +79,7 @@ func interface2Str(s interface{}) (d string) {
 }
 
 // 字符串false,0 会被认定为false
-func interface2Bool(s interface{}) (d bool) {
+func interfaceToBool(s interface{}) (d bool) {
 	if s == nil {
 		return false
 	}

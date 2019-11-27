@@ -3,6 +3,7 @@ package vuessr
 import (
 	"encoding/xml"
 	"fmt"
+	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
 	"strings"
 )
 
@@ -68,13 +69,17 @@ type VIfDirective struct {
 	condition string
 }
 
-func (e VIfDirective) Exec(el *VueElement, code string) string {
+func (e VIfDirective) Exec(el *VueElement, childCode string) string {
+	condition, err := ast_from_api.JsCode2Go(e.condition)
+	if err != nil {
+		panic(err)
+	}
 	// 将自己for
 	return fmt.Sprintf(`
 func ()string{
-  if condition(data, "%s") {return %s}
+  if interfaceToBool(%s) {return %s}
   return ""
-}()`, e.condition, code)
+}()`, condition, childCode)
 }
 
 func getVForDirective(raw string) (d VForDirective) {
