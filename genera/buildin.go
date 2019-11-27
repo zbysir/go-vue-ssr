@@ -2,7 +2,6 @@ package genera
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"regexp"
 	"strings"
@@ -20,10 +19,52 @@ type Options struct {
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
-// tip: 纯静态的attr应该在编译时期就生成字符串, 而不应调用这个
-func mixinAttr(attr []xml.Attr, data interface{}) (str string) {
-
+// tip: 纯静态的class应该在编译时期就生成字符串, 而不应调用这个
+// classProps: 支持 obj, array, string
+func mixinClass(options *Options, staticClass []string, classProps interface{}) (str string) {
+	str = strings.Join(staticClass, " ")
+	if str!=""{
+		str+=" "
+	}
+	str+=genClassFromProps(classProps)
+	// 上一个props
+	if options!=nil && options.Props!=nil{
+		prop,ok:= options.Props["class"]
+		if ok{
+			if str!=""{
+				str+=" "
+			}
+			str+=genClassFromProps(prop)
+		}
+	}
 	return
+}
+
+// classProps: 支持 obj, array, string
+func genClassFromProps(classProps interface{})string {
+	if classProps==nil{
+		return ""
+	}
+	switch t:=classProps.(type) {
+	case []string:
+		return strings.Join(t, " ")
+	case string:
+		return t
+	case map[string]interface{}:
+		c:=""
+		for k,v:=range t{
+			if interfaceToBool(v){
+				if c!=""{
+					c+=" "
+				}
+				c+=k
+			}
+		}
+
+		return c
+	}
+
+	return ""
 }
 
 func lookInterface(data interface{}, key string) (desc interface{}) {

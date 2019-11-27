@@ -13,7 +13,7 @@ type VueElement struct {
 	Class      []string          // 静态class
 	Style      map[string]string // 静态style
 	StyleKeys  []string          // 样式的key, 用来保证顺序
-	Props      map[string]string
+	Props      map[string]string // props, 不包括class和style
 	Children   []*VueElement
 }
 
@@ -96,10 +96,10 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 
 	for i, v := range e.Children {
 		ch[i] = p.Parse(v)
+		ch[i].IsRoot = isRoot
 	}
 
 	v := &VueElement{
-		IsRoot:     isRoot,
 		TagName:    e.TagName,
 		Text:       e.Text,
 		Attrs:      attrs,

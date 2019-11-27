@@ -23,9 +23,9 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 
 	return fmt.Sprintf("package %s\n\n"+
 		"func XComponent_%s(options *Options)string{\n"+
-		"%s:= %s\n"+
+		"%s:= %s\n_ = %s\n"+
 		"return %s"+
-		"}", pkgName, name, DataKey, PropsKey, code)
+		"}", pkgName, name, DataKey, PropsKey, DataKey, code)
 }
 
 // 生成并写入文件夹

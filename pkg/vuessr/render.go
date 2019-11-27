@@ -16,6 +16,7 @@ type App struct {
 	Components map[string]struct{} // name=>node
 }
 
+// 用来生成Option代码所需要的数据
 type OptionsGen struct {
 	Props         map[string]string // 上级传递的 数据(包含了class和style)
 	Attrs         map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
@@ -183,7 +184,7 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		attrs = injectVal(attrs)
 		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s %s>"+%s+"</%s>"`, e.TagName, encodeString(attrs), childrenCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s "+%s+">"+%s+"</%s>"`, e.TagName, attrs, childrenCode, e.TagName)
 	}
 
 	// 处理指令 如v-for

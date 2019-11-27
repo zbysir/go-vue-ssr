@@ -39,6 +39,8 @@
     </text>
 
     <div v-if="!isShow">显示隐藏</div>
+
+    <class v-bind:class="customClass"></class>
   </div>
 </template>
 

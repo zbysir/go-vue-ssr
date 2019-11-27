@@ -7,7 +7,6 @@ import (
 
 func main() {
 	err := http.ListenAndServe(":10000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		// run pkg/vuessr/generator_test.go first
 		html := genera.XComponent_helloworld(&genera.Options{
 			Props: map[string]interface{}{

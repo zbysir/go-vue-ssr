@@ -3,9 +3,9 @@ package http
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/json-iterator/go"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -57,7 +57,7 @@ func (c *Client) Request(path string, method string, post []byte, header http.He
 	result = body
 
 	if rsp != nil {
-		err = jsoniter.ConfigCompatibleWithStandardLibrary.Unmarshal(body, rsp)
+		err = json.Unmarshal(body, rsp)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("Unmarshal err: %v", err))
 			return
