@@ -10,9 +10,9 @@ type VueElement struct {
 	Text       string
 	Attrs      map[string]string // 除去指令/props/style/class之外的属性
 	Directives Directives
-	Class      []string // 静态class
+	Class      []string          // 静态class
 	Style      map[string]string // 静态style
-	StyleKeys  []string // 样式的key, 用来保证顺序
+	StyleKeys  []string          // 样式的key, 用来保证顺序
 	Props      map[string]string
 	Children   []*VueElement
 }
@@ -42,15 +42,18 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 	for _, v := range e.Attrs {
 		if v.Name.Space == "v-bind" {
 			props[v.Name.Local] = v.Value
-		} else if strings.HasPrefix(v.Name.Local, "v-") {
+		} else if strings.HasPrefix(v.Name.Local, "v-") || strings.HasPrefix(v.Name.Space, "v-") {
+			// v-if="": local
+			// v-slot:name="" : space
+			// v-show="": local
 			name := v.Name.Local
-			switch name {
-			case "v-for":
+			switch {
+			case v.Name.Local == "v-for":
 				ds[name] = getVForDirective(v)
-			case "v-if":
+			case v.Name.Local == "v-if":
 				ds[name] = getVIfDirective(v)
-			case "v-if":
-				ds[name] = getVIfDirective(v)
+			case v.Name.Space == "v-slot":
+				ds[name] = getVSlotDirective(v)
 			}
 		} else if v.Name.Local == "class" {
 			ss := strings.Split(v.Value, " ")
@@ -73,7 +76,11 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 				styleKeys = append(styleKeys, key)
 			}
 		} else {
-			attrs[v.Name.Space+":"+v.Name.Local] = v.Value
+			key := v.Name.Local
+			if v.Name.Space != "" {
+				key = v.Name.Space + ":" + v.Name.Local
+			}
+			attrs[key] = v.Value
 		}
 	}
 

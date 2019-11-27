@@ -76,10 +76,11 @@ func ()string{
 
 type VSlotDirective struct {
 	slotName string
+	propsKey string
 }
 
 func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
-	return "", map[string]string{
+	return `""`, map[string]string{
 		e.slotName: code,
 	}
 }
@@ -115,6 +116,7 @@ func getVIfDirective(attr xml.Attr) (d VIfDirective) {
 
 // slot可以传递props, 为了解决这个问题, 可以使用func XSlot(slotCode map[string]string, name string, propsKey string, props map[string]interface{}){}方法来实现
 func getVSlotDirective(attr xml.Attr) (d VSlotDirective) {
-	d.slotName = attr.Name.sp
+	d.slotName = attr.Name.Local
+	d.propsKey = attr.Value
 	return
 }

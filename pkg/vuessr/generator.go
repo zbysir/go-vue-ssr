@@ -19,7 +19,7 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 	code, _ := ve.RenderFunc(app)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
-	code = strings.Replace(code, `"+"`, "", -1)
+	//code = strings.Replace(code, `"+"`, "", -1)
 
 	return fmt.Sprintf("package %s\n\n"+
 		"func XComponent_%s(options *Options)string{\n"+

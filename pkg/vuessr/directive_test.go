@@ -1,13 +1,16 @@
 package vuessr
 
-import "testing"
+import (
+	"encoding/xml"
+	"testing"
+)
 
 func TestVFor(t *testing.T) {
-	d := getVForDirective("item in list")
+	d := getVForDirective(xml.Attr{Value:"item in list"})
 	t.Log(d.Exec(nil, `"<div></div>"`))
 }
 
 func TestVIf(t *testing.T) {
-	d := getVIfDirective("isShow")
+	d := getVIfDirective(xml.Attr{Value:"isShow"})
 	t.Log(d.Exec(nil, `"<div></div>"`))
 }

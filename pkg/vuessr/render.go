@@ -2,6 +2,7 @@ package vuessr
 
 import (
 	"fmt"
+	"github.com/bysir-zl/vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
 	"regexp"
 	"strings"
@@ -89,8 +90,14 @@ func (o *OptionsGen) ToGoCode() string {
 		c += fmt.Sprintf("StyleKeys: %s,\n", sliceToGoCode(o.StyleKeys))
 	}
 	slot := map[string]string{
-		"default": o.ChildrenCode,
 	}
+
+	defaultSlot:=o.ChildrenCode
+	if defaultSlot==""{
+		defaultSlot = `""`
+	}
+	slot["default"]= defaultSlot
+
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
@@ -161,6 +168,7 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		// 使用子级
 		eleCode = childrenCode
 	} else if e.TagName == "slot" {
+		log.Infof("%v", e)
 		name := e.Attrs["name"]
 		if name == "" {
 			name = "default"

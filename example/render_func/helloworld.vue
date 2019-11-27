@@ -31,8 +31,7 @@
     </text>
 
     <text>
-
-      <div v-slot:abc>
+      <div v-slot:abc="a">
         <div>-- 具名slot --</div>
         我是具名slot内容
         <div>-- /具名slot --</div>
