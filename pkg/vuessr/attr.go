@@ -38,7 +38,7 @@ func genAttr(e *VueElement) string {
 				}
 			}
 
-			classCode = fmt.Sprintf(`"class=\""+mixinClass(options, %s, %s)+"\""`, staticClassCode, classPropsCode)
+			classCode = fmt.Sprintf(`mixinClass(options, %s, %s)`, staticClassCode, classPropsCode)
 		}
 
 		// style
@@ -54,7 +54,7 @@ func genAttr(e *VueElement) string {
 				}
 			}
 
-			styleCode = fmt.Sprintf(`"style=\""+mixinStyle(options, %s, %s)+"\""`, staticStyleCode, stylePropsCode)
+			styleCode = fmt.Sprintf(`mixinStyle(options, %s, %s)`, staticStyleCode, stylePropsCode)
 		}
 	} else {
 		// class
@@ -70,11 +70,11 @@ func genAttr(e *VueElement) string {
 				}
 			}
 			if classPropsCode != "nil" {
-				classCode = fmt.Sprintf(`"class=\""+mixinClass(nil, %s, %s)+"\""`, staticClassCode, classPropsCode)
+				classCode = fmt.Sprintf(`mixinClass(nil, %s, %s)`, staticClassCode, classPropsCode)
 			} else if staticClassCode == "nil" {
-				classCode = `""`
+				classCode = ``
 			} else {
-				classCode = fmt.Sprintf(`"class=\"%s\""`, strings.Join(e.Class, " "))
+				classCode = fmt.Sprintf(`" class=\"%s\""`, strings.Join(e.Class, " "))
 			}
 		}
 
@@ -91,24 +91,26 @@ func genAttr(e *VueElement) string {
 				}
 			}
 			if stylePropsCode != "nil" {
-				styleCode = fmt.Sprintf(`"style=\""+mixinStyle(nil, %s, %s)+"\""`, staticStyleCode, stylePropsCode)
+				styleCode = fmt.Sprintf(`mixinStyle(nil, %s, %s)`, staticStyleCode, stylePropsCode)
 			} else if staticStyleCode == "nil" {
-				styleCode = `""`
+				styleCode = ``
 			} else {
-				styleCode = fmt.Sprintf(`"style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
+				styleCode = fmt.Sprintf(`" style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
 			}
 		}
 	}
 
-	a += classCode
+	if classCode != `` {
+		a += classCode
+	}
 
 	// props类
 	// 需要传递给子级的变量, 全部需要显示写v-bind:, 不支持像vue一样的传递字符串变量可以这样写 <el-input v-bind:size="mini" >
 
 	// 样式
-	if len(styleCode) != 0 {
+	if styleCode != `` {
 		if a != "" {
-			a += `+" "+`
+			a += `+`
 		}
 		a += styleCode
 	}
@@ -125,6 +127,10 @@ func genAttr(e *VueElement) string {
 		}
 
 		a += `"` + at + `"`
+	}
+
+	if a == "" {
+		a = `""`
 	}
 
 	return a

@@ -38,6 +38,9 @@ func sliceStringToGoCode(m []string) string {
 }
 
 func mapStringToGoCode(m map[string]string) string {
+	if len(m) == 0 {
+		return "nil"
+	}
 	c := "map[string]string"
 	c += "{"
 	for k, v := range m {
@@ -204,7 +207,7 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		attrs = injectVal(attrs)
 		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s "+%s+">"+%s+"</%s>"`, e.TagName, attrs, childrenCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, childrenCode, e.TagName)
 	}
 
 	// 处理指令 如v-for

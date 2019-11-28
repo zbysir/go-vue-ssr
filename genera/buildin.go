@@ -53,9 +53,14 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 		}
 	}
 
+	if str != "" {
+		str = fmt.Sprintf(` class="%s"`, str)
+	}
+
 	return
 }
 
+// 构建style, 生成如`style="color: red"`的代码, 如果style代码为空 则只会返回空字符串
 func mixinStyle(options *Options, staticStyle map[string]string, styleProps interface{}) (str string) {
 	style := map[string]string{}
 
@@ -88,7 +93,10 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps inte
 		}
 	}
 
-	str = genStyle(style)
+	styleCode := genStyle(style)
+	if styleCode != "" {
+		str = fmt.Sprintf(` style="%s"`, styleCode)
+	}
 
 	return
 }
