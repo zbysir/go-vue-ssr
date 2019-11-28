@@ -11,7 +11,22 @@ func TestX(t *testing.T) {
 			"name":        "bysir",
 			"sex":         "男",
 			"age":         "18",
-			"list":        []interface{}{"1", map[string]interface{}{"a": 1}},
+			"list":        []interface{}{"1", map[string]interface{}{"a": 2}},
+			"isShow":      true,
+			"customClass": "customClass",
+		},
+	})
+
+	t.Log(html)
+}
+
+func TestSlot(t *testing.T) {
+	html := genera.XComponent_xslot(&genera.Options{
+		Props: map[string]interface{}{
+			"name":        "bysir",
+			"sex":         "男",
+			"age":         "18",
+			"list":        []interface{}{"ab", "cd"},
 			"isShow":      true,
 			"customClass": "customClass",
 		},

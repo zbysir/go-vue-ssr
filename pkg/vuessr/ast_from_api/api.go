@@ -58,6 +58,12 @@ type Property struct {
 	Value Node `json:"value"`
 }
 
+// a.b.c这样的读取成员变量表达式
+type MemberExpression struct {
+	Object   Node `json:"object"`
+	Property Node `json:"property"`
+}
+
 func (p Property) GetKey() string {
 	switch t := p.Key.Assert().(type) {
 	case Identifier:
@@ -71,6 +77,31 @@ func (p Property) GetKey() string {
 	return ""
 }
 
+// 获取a.b.c.d
+func (p MemberExpression) GetKey() string {
+	currKey := ""
+	switch t := p.Property.Assert().(type) {
+	case Identifier:
+		currKey = t.Name
+	case Literal:
+		currKey = t.Value.(string)
+	default:
+		panic(t)
+	}
+
+	parentKey := ""
+	switch t := p.Object.Assert().(type) {
+	case MemberExpression:
+		parentKey += t.GetKey() + "."
+	case Identifier:
+		parentKey += t.Name + "."
+	case Literal:
+		parentKey += t.Value.(string) + "."
+	}
+
+	return parentKey + currKey
+}
+
 var nodeMap = map[string]interface{}{
 	"Program":             Program{},
 	"ExpressionStatement": ExpressionStatement{},
@@ -80,7 +111,8 @@ var nodeMap = map[string]interface{}{
 	"UnaryExpression":     UnaryExpression{},
 	"Literal":             Literal{},
 	"ObjectExpression":    ObjectExpression{},
-	"Property":    Property{},
+	"Property":            Property{},
+	"MemberExpression":    MemberExpression{},
 }
 
 func (n Node) Assert() interface{} {

@@ -10,31 +10,16 @@
     name: {{name + " " + name}}
     info:
 
-    <text
-        v-bind:age="age"
-        v-bind:sex="sex"
-        v-bind:data="{a: 1}"
-        v-bind:list="list">
-      我的信息:
-      <div>-- defaultSlot --</div>
-
-      <div v-for="item in list">
-        {{item}}
-      </div>
-
-      <div>-- vFor --</div>
-      <vFor v-bind:list="list">
-      </vFor>
-      <div>-- /vFor --</div>
-
-      <div>-- /defaultSlot --</div>
-    </text>
-
-    <text>
+    <text v-bind:list="list">
       <div v-slot:abc="a">
-        <div>-- 具名slot --</div>
-        我是具名slot内容
-        <div>-- /具名slot --</div>
+        1我是具名slot props msg: {{a.msg}}
+        1我是具名slot 所属组件属性 age: {{age}}
+      </div>
+    </text>
+    <text v-bind:list="list">
+      <div v-slot:abc="a">
+        2我是具名slot props msg: {{a.msg}}
+        2我是具名slot 所属组件属性 age: {{age}}
       </div>
     </text>
 

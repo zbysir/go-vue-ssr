@@ -35,6 +35,8 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		return genGoCodeByNode(t.Expression, dataKey)
 	case Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
+	case MemberExpression:
+		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.GetKey())
 	case Literal:
 		// js的字符串可以用'', 但go中必须是"", 所以需要替换
 		c := t.Raw
@@ -66,6 +68,7 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		mapCode += "}"
 
 		return mapCode
+
 	default:
 		panic(t)
 		//bs,_:=json.Marshal(t)

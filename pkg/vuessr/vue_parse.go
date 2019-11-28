@@ -53,7 +53,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 			case v.Name.Local == "v-if":
 				ds[name] = getVIfDirective(v)
 			case v.Name.Space == "v-slot":
-				ds[name] = getVSlotDirective(v)
+				ds[name] = getVSlotDirective( v)
 			}
 		} else if v.Name.Local == "class" {
 			ss := strings.Split(v.Value, " ")

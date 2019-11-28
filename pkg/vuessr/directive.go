@@ -51,10 +51,10 @@ func ()string{
         }, xdata)
 
         return %s
-    }(data)
+    }(%s)
   }
 return c
-}()`, DataKey, vfArray, DataKey, vfIndex, vfItem, code), nil
+}()`, DataKey, vfArray, DataKey, vfIndex, vfItem, code, DataKey), nil
 }
 
 type VIfDirective struct {
@@ -66,7 +66,7 @@ func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedS
 	if err != nil {
 		panic(err)
 	}
-	// 将自己for
+
 	return fmt.Sprintf(`
 func ()string{
   if interfaceToBool(%s) {return %s}
@@ -80,9 +80,20 @@ type VSlotDirective struct {
 }
 
 func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
-	return `""`, map[string]string{
+	// 插槽支持传递props, 需要有自己的作用域, 所以需要使用闭包实现
+	code = fmt.Sprintf(`
+func(props map[string]interface{}) string{
+	%s := extendMap(map[string]interface{}{"%s": props}, %s)
+	return %s
+}`, DataKey, e.propsKey, DataKey, code)
+
+	namedSlotCode = map[string]string{
 		e.slotName: code,
 	}
+
+	// 插槽会将原来的子代码去掉, 并将代码放在namedSlot里.
+	descCode = `""`
+	return
 }
 
 // raw: 指令的值
@@ -114,9 +125,14 @@ func getVIfDirective(attr xml.Attr) (d VIfDirective) {
 	return
 }
 
-// slot可以传递props, 为了解决这个问题, 可以使用func XSlot(slotCode map[string]string, name string, propsKey string, props map[string]interface{}){}方法来实现
+// slot可以传递props, 为了解决这个问题, 可以使用func (slotCode map[string]string, name string, propsKey string, props map[string]interface{}){}()闭包实现
 func getVSlotDirective(attr xml.Attr) (d VSlotDirective) {
 	d.slotName = attr.Name.Local
 	d.propsKey = attr.Value
+	// 不应该为空, 否则可能会导致生成的go代码有误
+	if d.propsKey == "" {
+		d.propsKey = "slotProps"
+	}
+
 	return
 }

@@ -48,8 +48,8 @@ func mapStringToGoCode(m map[string]string) string {
 	return c
 }
 
-func mapCodeToGoCode(m map[string]string) string {
-	c := "map[string]string"
+func mapCodeToGoCode(m map[string]string, valueType string) string {
+	c := "map[string]" + valueType
 	c += "{"
 	for k, v := range m {
 		c += fmt.Sprintf(`"%s": %s,`, k, v)
@@ -101,16 +101,16 @@ func (o *OptionsGen) ToGoCode() string {
 	slot := map[string]string{
 	}
 
-	defaultSlot := o.ChildrenCode
-	if defaultSlot == "" {
-		defaultSlot = `""`
+	children := o.ChildrenCode
+	if children == "" {
+		children = `""`
 	}
-	slot["default"] = defaultSlot
+	slot["default"] = fmt.Sprintf(`func (props map[string]interface{})string{return %s}`, children)
 
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
-	c += fmt.Sprintf("Slot: %s,\n", mapCodeToGoCode(slot))
+	c += fmt.Sprintf("Slot: %s,\n", mapCodeToGoCode(slot, "namedSlotFunc"))
 
 	c += "}"
 	return c
@@ -181,7 +181,18 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		if name == "" {
 			name = "default"
 		}
-		eleCode = fmt.Sprintf(`%s["%s"]`, SlotKey, name)
+		props := "map[string]interface{}"
+		props += "{"
+		for k, v := range e.Props {
+			valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
+			if err != nil {
+				panic(err)
+			}
+			props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+		}
+		props += "}"
+
+		eleCode = fmt.Sprintf(`xSlot(%s["%s"], %s, %s)`, SlotKey, name, props, childrenCode)
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)

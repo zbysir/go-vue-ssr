@@ -10,12 +10,12 @@ import (
 
 // 渲染组件需要的结构
 type Options struct {
-	Props     map[string]interface{} // 上级传递的 数据(包含了class和style)
-	Attrs     map[string]string      // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
-	Class     []string               // 静态class, 只会作用在root节点
-	Style     map[string]string      // 静态style, 只会作用在root节点
-	StyleKeys []string               // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]string      // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Props     map[string]interface{}   // 上级传递的 数据(包含了class和style)
+	Attrs     map[string]string        // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Class     []string                 // 静态class, 只会作用在root节点
+	Style     map[string]string        // 静态style, 只会作用在root节点
+	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
+	Slot      map[string]namedSlotFunc // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
 }
 
 // 混合动态和静态的标签, 主要是style/class需要混合
@@ -310,9 +310,15 @@ func injectVal(src string, data interface{}) (to string) {
 	return src
 }
 
-// 判断, 支持简单的表达式:
-// && || ! (并或非)
-// isShow && !isHide
-func condition(data map[string]interface{}, exp string) bool {
-	return lookInterfaceToBool(data, exp)
+// 用来生成slot的方法
+type namedSlotFunc func(props map[string]interface{}) string
+
+// 执行slot返回代码
+func xSlot(injectSlotFunc namedSlotFunc, props map[string]interface{}, defaultCode string) string {
+	// 如果没有传递slot 则使用默认的code
+	if injectSlotFunc == nil {
+		return defaultCode
+	}
+
+	return injectSlotFunc(props)
 }
