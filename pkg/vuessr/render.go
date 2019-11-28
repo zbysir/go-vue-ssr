@@ -18,14 +18,14 @@ type App struct {
 
 // 用来生成Option代码所需要的数据
 type OptionsGen struct {
-	Props         map[string]string // 上级传递的 数据(包含了class和style)
-	Attrs         map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
-	Class         []string          // 静态class
-	Style         map[string]string // 静态style
-	StyleKeys     []string          // 样式的key, 用来保证顺序
-	Slot          map[string]string // 插槽节点
-	ChildrenCode  string            // 子节点code, 用于默认的插槽
-	NamedSlotCode map[string]string // 具名插槽
+	Props           map[string]string // 上级传递的 数据(包含了class和style)
+	Attrs           map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Class           []string          // 静态class
+	Style           map[string]string // 静态style
+	StyleKeys       []string          // 样式的key, 用来保证顺序
+	Slot            map[string]string // 插槽节点
+	DefaultSlotCode string            // 子节点code, 用于默认的插槽
+	NamedSlotCode   map[string]string // 具名插槽
 }
 
 func sliceStringToGoCode(m []string) string {
@@ -101,10 +101,9 @@ func (o *OptionsGen) ToGoCode() string {
 	if len(o.StyleKeys) != 0 {
 		c += fmt.Sprintf("StyleKeys: %s,\n", sliceToGoCode(o.StyleKeys))
 	}
-	slot := map[string]string{
-	}
+	slot := map[string]string{}
 
-	children := o.ChildrenCode
+	children := o.DefaultSlotCode
 	if children == "" {
 		children = `""`
 	}
@@ -114,6 +113,7 @@ func (o *OptionsGen) ToGoCode() string {
 		slot[k] = v
 	}
 	c += fmt.Sprintf("Slot: %s,\n", mapCodeToGoCode(slot, "namedSlotFunc"))
+	c += fmt.Sprintf("P: options,\n")
 
 	c += "}"
 	return c
@@ -140,16 +140,16 @@ const (
 func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
-	childrenCode := ""
+	defaultSlotCode := ""
 
 	namedSlotCode = map[string]string{}
 	if len(e.Children) != 0 {
 		for _, v := range e.Children {
 			childCode, childNamedSlotCode := v.RenderFunc(app)
-			if childrenCode == "" {
-				childrenCode += childCode
+			if defaultSlotCode == "" {
+				defaultSlotCode += childCode
 			} else {
-				childrenCode += "+" + childCode
+				defaultSlotCode += "+" + childCode
 			}
 
 			for k, v := range childNamedSlotCode {
@@ -158,44 +158,27 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		}
 	}
 
-	if childrenCode == "" {
-		childrenCode = `""`
+	if defaultSlotCode == "" {
+		defaultSlotCode = `""`
 	}
 
 	// 调用组件
 	_, exist := app.Components[e.TagName]
 	if exist {
 		options := OptionsGen{
-			StyleKeys:     e.StyleKeys,
-			Class:         e.Class,
-			Attrs:         e.Attrs,
-			Props:         e.Props,
-			Style:         e.Style,
-			ChildrenCode:  childrenCode,
-			NamedSlotCode: namedSlotCode,
+			StyleKeys:       e.StyleKeys,
+			Class:           e.Class,
+			Attrs:           e.Attrs,
+			Props:           e.Props,
+			Style:           e.Style,
+			DefaultSlotCode: defaultSlotCode,
+			NamedSlotCode:   namedSlotCode,
 		}
 		optionsCode := options.ToGoCode()
 		eleCode = fmt.Sprintf("XComponent_%s(%s)", e.TagName, optionsCode)
 	} else if e.TagName == "template" {
 		// 使用子级
-		eleCode = childrenCode
-	} else if e.TagName == "slot" {
-		name := e.Attrs["name"]
-		if name == "" {
-			name = "default"
-		}
-		props := "map[string]interface{}"
-		props += "{"
-		for k, v := range e.Props {
-			valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
-			if err != nil {
-				panic(err)
-			}
-			props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
-		}
-		props += "}"
-
-		eleCode = fmt.Sprintf(`xSlot(%s["%s"], %s, %s)`, SlotKey, name, props, childrenCode)
+		eleCode = defaultSlotCode
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
@@ -207,7 +190,7 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		attrs = injectVal(attrs)
 		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, childrenCode, e.TagName)
+		eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
 	}
 
 	// 处理指令 如v-for
@@ -227,7 +210,10 @@ func encodeString(src string) string {
 
 func NewApp() *App {
 	return &App{
-		Components: map[string]struct{}{},
+		Components: map[string]struct{}{
+			"component": {},
+			"slot": {},
+		},
 	}
 }
 

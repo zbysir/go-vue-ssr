@@ -16,7 +16,10 @@ type Options struct {
 	Style     map[string]string        // 静态style, 只会作用在root节点
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
 	Slot      map[string]namedSlotFunc // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
+	P *Options // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
 }
+
+type ComponentFunc func (options *Options)string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
@@ -319,14 +322,5 @@ func injectVal(src string, data interface{}) (to string) {
 }
 
 // 用来生成slot的方法
+// 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
 type namedSlotFunc func(props map[string]interface{}) string
-
-// 执行slot返回代码
-func xSlot(injectSlotFunc namedSlotFunc, props map[string]interface{}, defaultCode string) string {
-	// 如果没有传递slot 则使用默认的code
-	if injectSlotFunc == nil {
-		return defaultCode
-	}
-
-	return injectSlotFunc(props)
-}

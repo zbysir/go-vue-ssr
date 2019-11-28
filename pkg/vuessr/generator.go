@@ -28,6 +28,18 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 		"}", pkgName, name, DataKey, PropsKey, DataKey, code)
 }
 
+func genRegister(app *App, pkgName string) string {
+	m := map[string]string{}
+	for k := range app.Components {
+		m[k] = fmt.Sprintf(`XComponent_%s`, k)
+	}
+
+	return fmt.Sprintf("package %s\n\n"+
+		"var components = map[string]ComponentFunc{}\n" +
+		"func init(){components = %s}",
+		pkgName, mapCodeToGoCode(m, "ComponentFunc"))
+}
+
 // 生成并写入文件夹
 func genAllFile(src, desc string) (err error) {
 	// 生成文件夹
@@ -56,18 +68,32 @@ func genAllFile(src, desc string) (err error) {
 		return
 	}
 
+	var components []string
+
 	app := NewApp()
 
 	for _, v := range vue {
 		_, fileName := filepath.Split(v)
 		name := strings.Split(fileName, ".")[0]
 		app.Component(name)
+
+		components = append(components, name)
 	}
 
+	_, pkgName := filepath.Split(desc)
+
+	// 注册vue组件, 用于动态组件
+	code := genRegister(app, pkgName)
+	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"register.go", []byte(code), 0666)
+	if err != nil {
+		return
+	}
+
+	// 生成vue组件
 	for _, v := range vue {
 		_, fileName := filepath.Split(v)
 		name := strings.Split(fileName, ".")[0]
-		_, pkgName := filepath.Split(desc)
+
 		code := genComponentRenderFunc(app, pkgName, name, v)
 		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", []byte(code), 0666)
 		if err != nil {
