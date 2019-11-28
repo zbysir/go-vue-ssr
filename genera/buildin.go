@@ -16,10 +16,15 @@ type Options struct {
 	Style     map[string]string        // 静态style, 只会作用在root节点
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
 	Slot      map[string]namedSlotFunc // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
-	P *Options // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
+	P         *Options                 // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
 }
 
-type ComponentFunc func (options *Options)string
+// 组件的render函数
+type ComponentFunc func(options *Options) string
+
+// 用来生成slot的方法
+// 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
+type namedSlotFunc func(props map[string]interface{}) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
@@ -179,29 +184,6 @@ func lookInterface(data interface{}, key string) (desc interface{}) {
 	return m
 }
 
-func lookInterfaceToStr(data interface{}, key string) (desc string) {
-	m, ok := shouldLookInterface(data, key)
-	if !ok {
-		return ""
-	}
-
-	return interfaceToStr(m)
-}
-
-func lookInterfaceToBool(data interface{}, key string, re ...bool) (desc bool) {
-	m, ok := shouldLookInterface(data, key)
-	if !ok {
-		desc = false
-	} else {
-		desc = interfaceToBool(m)
-	}
-
-	if len(re) != 0 && re[0] {
-		desc = !desc
-	}
-	return
-}
-
 // 扩展map, 实现作用域
 func extendMap(src map[string]interface{}, ext map[string]interface{}) (desc map[string]interface{}) {
 	//desc = make(map[string]interface{}, len(src))
@@ -228,8 +210,6 @@ func interfaceToStr(s interface{}) (d string) {
 		bs, _ := json.Marshal(a)
 		return string(bs)
 	}
-
-	return
 }
 
 // 字符串false,0 会被认定为false
@@ -320,7 +300,3 @@ func injectVal(src string, data interface{}) (to string) {
 	})
 	return src
 }
-
-// 用来生成slot的方法
-// 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type namedSlotFunc func(props map[string]interface{}) string
