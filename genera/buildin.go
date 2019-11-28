@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -22,42 +23,133 @@ type Options struct {
 // tip: 纯静态的class应该在编译时期就生成字符串, 而不应调用这个
 // classProps: 支持 obj, array, string
 func mixinClass(options *Options, staticClass []string, classProps interface{}) (str string) {
+	// 静态
 	str = strings.Join(staticClass, " ")
-	if str!=""{
-		str+=" "
+
+	if str != "" {
+		str += " "
 	}
-	str+=genClassFromProps(classProps)
-	// 上一个props
-	if options!=nil && options.Props!=nil{
-		prop,ok:= options.Props["class"]
-		if ok{
-			if str!=""{
-				str+=" "
+	// 本身的props
+	str += genClassFromProps(classProps)
+
+	if options != nil {
+		// 上层传递的props
+		if options.Props != nil {
+			prop, ok := options.Props["class"]
+			if ok {
+				if str != "" {
+					str += " "
+				}
+				str += genClassFromProps(prop)
 			}
-			str+=genClassFromProps(prop)
+		}
+
+		// 上层传递的静态class
+		if len(options.Class) != 0 {
+			if str != "" {
+				str += " "
+			}
+			str += strings.Join(options.Class, " ")
 		}
 	}
+
 	return
 }
 
+func mixinStyle(options *Options, staticStyle map[string]string, styleProps interface{}) (str string) {
+	style := map[string]string{}
+
+	// 静态
+	for k, v := range staticStyle {
+		style[k] = v
+	}
+
+	// 当前props
+	ps := getStyleFromProps(styleProps)
+	for k, v := range ps {
+		style[k] = v
+	}
+
+	if options != nil {
+		// 上层传递的props
+		if options.Props != nil {
+			prop, ok := options.Props["style"]
+			if ok {
+				ps := getStyleFromProps(prop)
+				for k, v := range ps {
+					style[k] = v
+				}
+			}
+		}
+
+		// 上层传递的静态style
+		for k, v := range options.Style {
+			style[k] = v
+		}
+	}
+
+	str = genStyle(style)
+
+	return
+}
+
+func getSortedKey(m map[string]string) (keys []string) {
+	keys = make([]string, len(m))
+	index := 0
+	for k := range m {
+		keys[index] = k
+		index++
+	}
+	if len(m) < 2 {
+		return keys
+	}
+
+	sort.Strings(keys)
+
+	return
+}
+
+func genStyle(style map[string]string) string {
+	sortedKeys := getSortedKey(style)
+
+	st := ""
+	for _, k := range sortedKeys {
+		v := style[k]
+		st += fmt.Sprintf("%s: %s; ", k, v)
+	}
+	return st
+}
+
+func getStyleFromProps(styleProps interface{}) map[string]string {
+	pm, ok := styleProps.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+	st := map[string]string{}
+	for k, v := range pm {
+		st[k] = fmt.Sprintf("%v", v)
+	}
+	return st
+}
+
 // classProps: 支持 obj, array, string
-func genClassFromProps(classProps interface{})string {
-	if classProps==nil{
+func genClassFromProps(classProps interface{}) string {
+	if classProps == nil {
 		return ""
 	}
-	switch t:=classProps.(type) {
+	switch t := classProps.(type) {
 	case []string:
 		return strings.Join(t, " ")
 	case string:
 		return t
 	case map[string]interface{}:
-		c:=""
-		for k,v:=range t{
-			if interfaceToBool(v){
-				if c!=""{
-					c+=" "
+		c := ""
+		for k, v := range t {
+			if interfaceToBool(v) {
+				if c != "" {
+					c += " "
 				}
-				c+=k
+				c += k
 			}
 		}
 

@@ -28,6 +28,15 @@ type OptionsGen struct {
 	NamedSlotCode map[string]string // 具名插槽
 }
 
+func sliceStringToGoCode(m []string) string {
+	if len(m) == 0 {
+		return "nil"
+	}
+	c := strings.Join(m, `","`)
+	c = fmt.Sprintf(`[]string{"%s"}`, c)
+	return c
+}
+
 func mapStringToGoCode(m map[string]string) string {
 	c := "map[string]string"
 	c += "{"
@@ -92,11 +101,11 @@ func (o *OptionsGen) ToGoCode() string {
 	slot := map[string]string{
 	}
 
-	defaultSlot:=o.ChildrenCode
-	if defaultSlot==""{
+	defaultSlot := o.ChildrenCode
+	if defaultSlot == "" {
 		defaultSlot = `""`
 	}
-	slot["default"]= defaultSlot
+	slot["default"] = defaultSlot
 
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
@@ -189,9 +198,9 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 
 	// 处理指令 如v-for
 
-	eleCode ,namedSlotCode2:= e.Directives.Exec(e, eleCode)
-	for i,v:=range namedSlotCode2{
-		namedSlotCode[i] =v
+	eleCode, namedSlotCode2 := e.Directives.Exec(e, eleCode)
+	for i, v := range namedSlotCode2 {
+		namedSlotCode[i] = v
 	}
 
 	return eleCode, namedSlotCode

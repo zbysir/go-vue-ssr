@@ -40,7 +40,8 @@
 
     <div v-if="!isShow">显示隐藏</div>
 
-    <class v-bind:class="customClass"></class>
+    <class v-bind:class="customClass" class="d e f"></class>
+    <xstyle v-bind:style="{'padding': '50px'}" style="margin: 50px"></xstyle>
   </div>
 </template>
 

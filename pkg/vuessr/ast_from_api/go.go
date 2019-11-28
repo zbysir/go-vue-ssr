@@ -2,6 +2,7 @@ package ast_from_api
 
 import (
 	"fmt"
+	"strings"
 )
 
 // 生成go代码
@@ -35,7 +36,12 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	case Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
 	case Literal:
-		return fmt.Sprintf(`%s`, t.Raw)
+		// js的字符串可以用'', 但go中必须是"", 所以需要替换
+		c := t.Raw
+		if strings.HasPrefix(c, "'") {
+			c = `"` + c[1:len(c)-1] + `"`
+		}
+		return c
 	case LogicalExpression:
 		left := genGoCodeByNode(t.Left, dataKey)
 		right := genGoCodeByNode(t.Right, dataKey)

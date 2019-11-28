@@ -17,23 +17,20 @@ func genAttr(e *VueElement) string {
 
 	// 查找props中的class 与 style, 将处理为动态class
 	classProps := ""
-	if e.Props!=nil{
+	styleProps := ""
+	if e.Props != nil {
 		classProps = e.Props["class"]
+		styleProps = e.Props["style"]
 	}
-	//styleProps := e.StyleProps
 
 	// 如果是root组件, 则始终应该使用动态class/style(因为上级传递的class/style不是固定的), 应该合并上级和本级的class/style
 	if e.IsRoot {
 		// class
 		{
-			staticClassCode := strings.Join(e.Class, `","`)
-			if len(staticClassCode) != 0 {
-				staticClassCode = `"` + staticClassCode + `"`
-			}
-			staticClassCode = fmt.Sprintf(`[]string{%s}`, staticClassCode)
+			staticClassCode := sliceStringToGoCode(e.Class)
 
-			classPropsCode:="nil"
-			if classProps!=""{
+			classPropsCode := "nil"
+			if classProps != "" {
 				var err error
 				classPropsCode, err = ast_from_api.JsCode2Go(classProps, DataKey)
 				if err != nil {
@@ -46,29 +43,60 @@ func genAttr(e *VueElement) string {
 
 		// style
 		{
-			 st:= genStyle(e.Style, e.StyleKeys)
-			styleCode = fmt.Sprintf(`"style=\"%s\""`, st)
-		}
-	}else{
-		staticClassCode := `nil`
-		if len(e.Class) != 0 {
-			staticClassCode = fmt.Sprintf(`[]string{"%s"}`, strings.Join(e.Class, `","`))
-		}
+			staticStyleCode := mapStringToGoCode(e.Style)
 
-		classPropsCode:= "nil"
-		if classProps!=""{
-			var err error
-			classPropsCode, err = ast_from_api.JsCode2Go(classProps, DataKey)
-			if err != nil {
-				panic(err)
+			stylePropsCode := "nil"
+			if styleProps != "" {
+				var err error
+				stylePropsCode, err = ast_from_api.JsCode2Go(styleProps, DataKey)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			styleCode = fmt.Sprintf(`"style=\""+mixinStyle(options, %s, %s)+"\""`, staticStyleCode, stylePropsCode)
+		}
+	} else {
+		// class
+		{
+			staticClassCode := sliceStringToGoCode(e.Class)
+
+			classPropsCode := "nil"
+			if classProps != "" {
+				var err error
+				classPropsCode, err = ast_from_api.JsCode2Go(classProps, DataKey)
+				if err != nil {
+					panic(err)
+				}
+			}
+			if classPropsCode != "nil" {
+				classCode = fmt.Sprintf(`"class=\""+mixinClass(nil, %s, %s)+"\""`, staticClassCode, classPropsCode)
+			} else if staticClassCode == "nil" {
+				classCode = `""`
+			} else {
+				classCode = fmt.Sprintf(`"class=\"%s\""`, strings.Join(e.Class, " "))
 			}
 		}
-		if classPropsCode!="nil"{
-			classCode = fmt.Sprintf(`"class=\""+mixinClass(nil, %s, %s)+"\""`,staticClassCode, classPropsCode)
-		}else if staticClassCode=="nil"{
-			classCode = `""`
-		}else{
-			classCode = fmt.Sprintf(`"class=\"%s\""`, strings.Join(e.Class, " "))
+
+		// style
+		{
+			staticStyleCode := mapStringToGoCode(e.Style)
+
+			stylePropsCode := "nil"
+			if styleProps != "" {
+				var err error
+				stylePropsCode, err = ast_from_api.JsCode2Go(styleProps, DataKey)
+				if err != nil {
+					panic(err)
+				}
+			}
+			if stylePropsCode != "nil" {
+				styleCode = fmt.Sprintf(`"style=\""+mixinStyle(nil, %s, %s)+"\""`, staticStyleCode, stylePropsCode)
+			} else if staticStyleCode == "nil" {
+				styleCode = `""`
+			} else {
+				styleCode = fmt.Sprintf(`"style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
+			}
 		}
 	}
 
@@ -91,12 +119,12 @@ func genAttr(e *VueElement) string {
 			a += `+" "+`
 		}
 
-		at:=""
+		at := ""
 		for k, v := range e.Attrs {
 			at += fmt.Sprintf(`%s=%v `, k, v)
 		}
 
-		a+=`"`+at+`"`
+		a += `"` + at + `"`
 	}
 
 	return a
