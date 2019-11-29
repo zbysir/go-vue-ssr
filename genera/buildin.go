@@ -3,20 +3,42 @@ package genera
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
 )
 
 // 渲染组件需要的结构
 type Options struct {
-	Props     map[string]interface{}   // 上级传递的 数据(包含了class和style)
+	Props     map[string]interface{}                    // 上级传递的 数据(包含了class和style)
 	Attrs     map[string]string        // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
 	Class     []string                 // 静态class, 只会作用在root节点
 	Style     map[string]string        // 静态style, 只会作用在root节点
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
 	Slot      map[string]namedSlotFunc // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
 	P         *Options                 // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
+}
+
+type Props map[string]interface{}
+
+func (p Props) CanBeAttr() Props {
+	html := map[string]struct{}{
+		"id":  {},
+		"src": {},
+	}
+
+	a := Props{}
+	for k, v := range p {
+		if _, ok := html[k]; ok {
+			a[k] = v
+			continue
+		}
+
+		if strings.HasPrefix(k, "data-") {
+			a[k] = v
+			continue
+		}
+	}
+	return a
 }
 
 // 组件的render函数
@@ -31,38 +53,42 @@ type namedSlotFunc func(props map[string]interface{}) string
 // tip: 纯静态的class应该在编译时期就生成字符串, 而不应调用这个
 // classProps: 支持 obj, array, string
 func mixinClass(options *Options, staticClass []string, classProps interface{}) (str string) {
+	var class []string
 	// 静态
-	str = strings.Join(staticClass, " ")
-
-	if str != "" {
-		str += " "
+	for _, c := range staticClass {
+		if c != "" {
+			class = append(class, c)
+		}
 	}
+
 	// 本身的props
-	str += genClassFromProps(classProps)
+	for _, c := range getClassFromProps(classProps) {
+		class = append(class, c)
+	}
 
 	if options != nil {
 		// 上层传递的props
 		if options.Props != nil {
 			prop, ok := options.Props["class"]
 			if ok {
-				if str != "" {
-					str += " "
+				for _, c := range getClassFromProps(prop) {
+					class = append(class, c)
 				}
-				str += genClassFromProps(prop)
 			}
 		}
 
 		// 上层传递的静态class
 		if len(options.Class) != 0 {
-			if str != "" {
-				str += " "
+			for _, c := range options.Class {
+				if c != "" {
+					class = append(class, c)
+				}
 			}
-			str += strings.Join(options.Class, " ")
 		}
 	}
 
-	if str != "" {
-		str = fmt.Sprintf(` class="%s"`, str)
+	if len(class) != 0 {
+		str = fmt.Sprintf(` class="%s"`, strings.Join(class, " "))
 	}
 
 	return
@@ -109,6 +135,43 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps inte
 	return
 }
 
+// 生成除了style和class的attr
+func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[string]interface{}) string {
+	attrs := map[string]string{}
+
+	// 静态
+	for k, v := range staticAttr {
+		attrs[k] = v
+	}
+
+	// 当前props
+	ps := getStyleFromProps(propsAttr)
+	for k, v := range ps {
+		attrs[k] = v
+	}
+
+	if options != nil {
+		// 上层传递的props
+		if options.Props != nil {
+			for k, v := range (Props(options.Props)).CanBeAttr() {
+				attrs[k] = fmt.Sprintf("%v", v)
+			}
+		}
+
+		// 上层传递的静态style
+		for k, v := range options.Attrs {
+			attrs[k] = v
+		}
+	}
+
+	c := genAttr(attrs)
+	if c == "" {
+		return ""
+	}
+
+	return fmt.Sprintf(" %s", c)
+}
+
 func getSortedKey(m map[string]string) (keys []string) {
 	keys = make([]string, len(m))
 	index := 0
@@ -136,6 +199,17 @@ func genStyle(style map[string]string) string {
 	return st
 }
 
+func genAttr(attr map[string]string) string {
+	sortedKeys := getSortedKey(attr)
+
+	st := ""
+	for _, k := range sortedKeys {
+		v := attr[k]
+		st += fmt.Sprintf(`%s="%s" `, k, v)
+	}
+	return st
+}
+
 func getStyleFromProps(styleProps interface{}) map[string]string {
 	pm, ok := styleProps.(map[string]interface{})
 	if !ok {
@@ -149,30 +223,27 @@ func getStyleFromProps(styleProps interface{}) map[string]string {
 }
 
 // classProps: 支持 obj, array, string
-func genClassFromProps(classProps interface{}) string {
+func getClassFromProps(classProps interface{}) []string {
 	if classProps == nil {
-		return ""
+		return nil
 	}
 	switch t := classProps.(type) {
 	case []string:
-		return strings.Join(t, " ")
-	case string:
 		return t
+	case string:
+		return []string{t}
 	case map[string]interface{}:
-		c := ""
+		var c []string
 		for k, v := range t {
 			if interfaceToBool(v) {
-				if c != "" {
-					c += " "
-				}
-				c += k
+				c = append(c, k)
 			}
 		}
 
 		return c
 	}
 
-	return ""
+	return nil
 }
 
 func lookInterface(data interface{}, key string) (desc interface{}) {
@@ -284,19 +355,4 @@ func shouldLookInterface(data interface{}, key string) (desc interface{}, exist 
 	}
 
 	return shouldLookInterface(c, strings.Join(kk[1:], "."))
-}
-
-func injectVal(src string, data interface{}) (to string) {
-	reg := regexp.MustCompile(`\{\{.+?\}\}`)
-
-	src = reg.ReplaceAllStringFunc(src, func(s string) string {
-		key := s[2 : len(s)-2]
-
-		desc, ok := shouldLookInterface(data, key)
-		if ok {
-			return fmt.Sprintf("%v", desc)
-		}
-		return ""
-	})
-	return src
 }

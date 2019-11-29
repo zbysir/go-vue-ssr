@@ -8,21 +8,19 @@ import (
 
 // 生成attr, 包括class style和其他
 // isRoot: 当时root节点的时候才会从options里读取上一层传递而来的数据 用来组装
-func genAttr(e *VueElement) string {
+func genAttrCode(e *VueElement) string {
 	var a = ""
 
 	// go代码
 	var classCode = ""
 	var styleCode = ""
+	var attrCode = ""
 
 	// 查找props中的class 与 style, 将处理为动态class
-	classProps := ""
-	styleProps := ""
-	if e.Props != nil {
-		classProps = e.Props["class"]
-		styleProps = e.Props["style"]
-	}
+	classProps := e.Props.Get("class")
+	styleProps := e.Props.Get("style")
 
+	// 额外处理class/style
 	// 如果是root组件, 则始终应该使用动态class/style(因为上级传递的class/style不是固定的), 应该合并上级和本级的class/style
 	if e.IsRoot {
 		// class
@@ -55,6 +53,14 @@ func genAttr(e *VueElement) string {
 			}
 
 			styleCode = fmt.Sprintf(`mixinStyle(options, %s, %s)`, staticStyleCode, stylePropsCode)
+		}
+
+		// 其他attr
+		{
+			staticAttrCode := mapStringToGoCode(e.Attrs)
+			attrPropsCode := propsCode(e.Props.CanBeAttr())
+
+			attrCode = fmt.Sprintf(`mixinAttr(options, %s, %s)`, staticAttrCode, attrPropsCode)
 		}
 	} else {
 		// class
@@ -91,6 +97,7 @@ func genAttr(e *VueElement) string {
 				}
 			}
 			if stylePropsCode != "nil" {
+				// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
 				styleCode = fmt.Sprintf(`mixinStyle(nil, %s, %s)`, staticStyleCode, stylePropsCode)
 			} else if staticStyleCode == "nil" {
 				styleCode = ``
@@ -98,14 +105,26 @@ func genAttr(e *VueElement) string {
 				styleCode = fmt.Sprintf(`" style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
 			}
 		}
+
+		// attr
+		{
+			staticAttrCode := mapStringToGoCode(e.Attrs)
+			attrPropsCode := propsCode(e.Props.Omit("class", "style"))
+
+			// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
+			if attrPropsCode != "nil" {
+				attrCode = fmt.Sprintf(`mixinAttr(nil, %s, %s)`, staticAttrCode, attrPropsCode)
+			} else if staticAttrCode == "nil" {
+				attrCode = ``
+			} else {
+				attrCode = fmt.Sprintf(`" %s"`, genAttr(e.Attrs, e.AttrsKeys))
+			}
+		}
 	}
 
 	if classCode != `` {
 		a += classCode
 	}
-
-	// props类
-	// 需要传递给子级的变量, 全部需要显示写v-bind:, 不支持像vue一样的传递字符串变量可以这样写 <el-input v-bind:size="mini" >
 
 	// 样式
 	if styleCode != `` {
@@ -115,19 +134,60 @@ func genAttr(e *VueElement) string {
 		a += styleCode
 	}
 
-	// 其他属性
-	if len(e.Attrs) != 0 {
+	// attr
+	if attrCode != `` {
 		if a != "" {
-			a += `+" "+`
+			a += `+`
 		}
-
-		at := ""
-		for k, v := range e.Attrs {
-			at += fmt.Sprintf(`%s=%v `, k, v)
-		}
-
-		a += `"` + at + `"`
+		a += attrCode
 	}
+
+	//// 其他静态属性
+	//if len(e.Attrs) != 0 {
+	//	if a != "" {
+	//		a += `+" "+`
+	//	}
+	//
+	//	at := ""
+	//	for k, v := range e.Attrs {
+	//		at += fmt.Sprintf(`%s=%v `, k, v)
+	//	}
+	//
+	//	a += `"` + at + `"`
+	//}
+
+	// 除了class和style, 其他的props都应该渲染为attr
+	//if e.IsRoot {
+	//	// root还需要渲染传递下来的props和attr
+	//	for k, v := range e.Props {
+	//		if k != "class" && k != "style" {
+	//			if a != "" {
+	//				a += `+" "+`
+	//			}
+	//			vCode, err := ast_from_api.JsCode2Go(v, DataKey)
+	//			if err != nil {
+	//				panic(err)
+	//			}
+	//
+	//			a += fmt.Sprintf(`"+"%s="+%v+"`, k, vCode)
+	//		}
+	//	}
+	//
+	//} else {
+	//	for k, v := range e.Props {
+	//		if k != "class" && k != "style" {
+	//			if a != "" {
+	//				a += `+" "+`
+	//			}
+	//			vCode, err := ast_from_api.JsCode2Go(v, DataKey)
+	//			if err != nil {
+	//				panic(err)
+	//			}
+	//
+	//			a += fmt.Sprintf(`"+"%s="+%v+"`, k, vCode)
+	//		}
+	//	}
+	//}
 
 	if a == "" {
 		a = `""`
@@ -144,4 +204,15 @@ func genStyle(style map[string]string, styleKeys []string) string {
 		st += fmt.Sprintf("%s: %s; ", k, v)
 	}
 	return st
+}
+
+func genAttr(attr map[string]string, keys []string) string {
+	c := ""
+	// 为了每次编译的代码都一样, style的顺序也应一样
+	for _, k := range keys {
+		v := attr[k]
+		c += fmt.Sprintf(`%s=\"%s\"`, k, v)
+	}
+	return c
+
 }

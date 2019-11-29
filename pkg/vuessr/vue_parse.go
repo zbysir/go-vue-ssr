@@ -9,12 +9,76 @@ type VueElement struct {
 	TagName    string
 	Text       string
 	Attrs      map[string]string // 除去指令/props/style/class之外的属性
+	AttrsKeys  []string          // 属性的key, 用来保证顺序
 	Directives Directives
 	Class      []string          // 静态class
 	Style      map[string]string // 静态style
 	StyleKeys  []string          // 样式的key, 用来保证顺序
-	Props      map[string]string // props, 不包括class和style
+	Props      Props             // props, 包括动态的class和style
 	Children   []*VueElement
+}
+
+type Props map[string]string
+
+func (p Props) Get(key string) string {
+	if p == nil {
+		return ""
+	}
+	return p[key]
+}
+
+func (p Props) Omit(key ...string) Props {
+	kMap := map[string]struct{}{}
+	for _, k := range key {
+		kMap[k] = struct{}{}
+	}
+
+	a := Props{}
+	for k, v := range p {
+		if _, ok := kMap[k]; ok {
+			continue
+		}
+		a[k] = v
+	}
+	return a
+}
+
+func (p Props) Only(key ...string) Props {
+	kMap := map[string]struct{}{}
+	for _, k := range key {
+		kMap[k] = struct{}{}
+	}
+
+	a := Props{}
+	for k, v := range p {
+		if _, ok := kMap[k]; !ok {
+			continue
+		}
+
+		a[k] = v
+	}
+	return a
+}
+
+func (p Props) CanBeAttr() Props {
+	html := map[string]struct{}{
+		"id":  {},
+		"src": {},
+	}
+
+	a := Props{}
+	for k, v := range p {
+		if _, ok := html[k]; ok {
+			a[k] = v
+			continue
+		}
+
+		if strings.HasPrefix(k, "data-") {
+			a[k] = v
+			continue
+		}
+	}
+	return a
 }
 
 func ParseVue(filename string) (v *VueElement, err error) {
@@ -38,6 +102,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 	style := map[string]string{}
 	var styleKeys []string
 	attrs := map[string]string{}
+	var attrsKeys []string
 
 	for _, v := range e.Attrs {
 		if v.Name.Space == "v-bind" {
@@ -53,7 +118,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 			case v.Name.Local == "v-if":
 				ds[name] = getVIfDirective(v)
 			case v.Name.Space == "v-slot":
-				ds[name] = getVSlotDirective( v)
+				ds[name] = getVSlotDirective(v)
 			}
 		} else if v.Name.Local == "class" {
 			ss := strings.Split(v.Value, " ")
@@ -81,6 +146,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 				key = v.Name.Space + ":" + v.Name.Local
 			}
 			attrs[key] = v.Value
+			attrsKeys = append(attrsKeys, key)
 		}
 	}
 
@@ -103,6 +169,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 		TagName:    e.TagName,
 		Text:       e.Text,
 		Attrs:      attrs,
+		AttrsKeys:  attrsKeys,
 		Directives: ds,
 		Class:      class,
 		Style:      style,

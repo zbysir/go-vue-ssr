@@ -73,20 +73,30 @@ func sliceToGoCode(m []string) string {
 	return c
 }
 
+// 生成props代码
+func propsCode(m map[string]string) string {
+	if len(m) == 0 {
+		return "nil"
+	}
+	props := "map[string]interface{}"
+	props += "{"
+	for k, v := range m {
+		valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
+		if err != nil {
+			panic(err)
+		}
+		props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+	}
+	props += "}"
+
+	return props
+}
+
 func (o *OptionsGen) ToGoCode() string {
 	c := "&Options{"
 	if len(o.Props) != 0 {
 		props := "Props: "
-		props += "map[string]interface{}"
-		props += "{"
-		for k, v := range o.Props {
-			valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
-			if err != nil {
-				panic(err)
-			}
-			props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
-		}
-		props += "}"
+		props += propsCode(o.Props)
 		c += props + ",\n"
 	}
 	if len(o.Attrs) != 0 {
@@ -186,7 +196,8 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
-		attrs := genAttr(e)
+		// 基础html标签
+		attrs := genAttrCode(e)
 		attrs = injectVal(attrs)
 		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
@@ -212,7 +223,7 @@ func NewApp() *App {
 	return &App{
 		Components: map[string]struct{}{
 			"component": {},
-			"slot": {},
+			"slot":      {},
 		},
 	}
 }

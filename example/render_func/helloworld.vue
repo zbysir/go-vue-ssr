@@ -30,6 +30,8 @@
     <component v-bind:is="'xstyle'" v-bind:style="{'padding': '50px'}" style="margin: 50px"></component>
 
     <component v-bind:is="'class'"></component>
+
+    <xattr type="input" id="attr" v-bind:src="name"></xattr>
   </div>
 </template>
 
