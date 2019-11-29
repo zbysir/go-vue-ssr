@@ -1,14 +1,14 @@
 package main
 
 import (
-	"github.com/bysir-zl/vue-ssr/genera"
+	"github.com/bysir-zl/vue-ssr/internal/vuetpl"
 	"net/http"
 )
 
 func main() {
 	err := http.ListenAndServe(":10000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// run pkg/vuessr/generator_test.go first
-		html := genera.XComponent_helloworld(&genera.Options{
+		html := vuetpl.XComponent_helloworld(&vuetpl.Options{
 			Props: map[string]interface{}{
 				"name":   "bysir",
 				"sex":    "男",

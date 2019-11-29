@@ -16,14 +16,34 @@ vue server side render but golang
 
 ## usage
 
-### step 1: genera
-run test: pkg/vuessr/generator_test.go
+### step 1: install
+```
+go get github.com/bysir-zl/vue-ssr
+```
+### step 2: genera
+```
+vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
+```
+将在./internal/vuetpl里生成go代码
 
-这一步将编译vue文件为基于字符串拼接的go代码.
+### step3: run
+```go
+vuetpl.XComponent_helloworld()
+```
 
-### step 2: render
+## vue features
+**support**
+- v-if
+- v-for
+- v-bind
+- dynamically style
+- dynamically class
+- named slot
+- slot scope
+- component
 
-just call: genera.XComponent_xxx
+**not support**
+- v-on
+- v-show
 
-这一步会使用生成的go代码渲染出html.
-
+**todo**
