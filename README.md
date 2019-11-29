@@ -43,6 +43,7 @@ vuetpl.XComponent_helloworld()
 - component
 
 **not support**
+- shorthands(eg. @ :), all of shorthands are unsupported, cause the xml parser.
 - v-on
 - v-show
 
