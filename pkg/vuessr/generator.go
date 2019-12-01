@@ -28,10 +28,32 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 		"}", pkgName, name, DataKey, PropsKey, DataKey, code)
 }
 
+func tuoFeng2SheXing(src []byte) (out []byte) {
+	l := len(src)
+	out = []byte{}
+	for i := 0; i < l; i = i + 1 {
+		// 大写变小写
+		if 97-32 <= src[i] && src[i] <= 122-32 {
+			if i != 0 {
+				out = append(out, '-')
+			}
+			out = append(out, src[i]+32)
+		} else {
+			out = append(out, src[i])
+		}
+	}
+
+	return
+}
+
 func genRegister(app *App, pkgName string) string {
 	m := map[string]string{}
 	for k := range app.Components {
 		m[k] = fmt.Sprintf(`XComponent_%s`, k)
+		k2 := string(tuoFeng2SheXing([]byte(k)))
+		if k != k2 {
+			m[k2] = fmt.Sprintf(`XComponent_%s`, k)
+		}
 	}
 
 	return fmt.Sprintf("package %s\n\n"+
@@ -164,7 +186,11 @@ func XComponent_component(options *Options) string {
 	if !ok {
 		return ""
 	}
-	return components[is](options)
+	if c, ok := components[is]; ok {
+		return c(options)
+	}
+
+	return fmt.Sprintf("not register com: %s", is)
 }
 
 // 渲染组件需要的结构
@@ -455,7 +481,9 @@ func interfaceToBool(s interface{}) (d bool) {
 		return a != 0
 	case string:
 		return a != "" && a != "false" && a != "0"
-	}
+	default:
+		return true
+}
 
 	return
 }

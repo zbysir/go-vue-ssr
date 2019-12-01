@@ -39,8 +39,7 @@ func (e VForDirective) Exec(el *VueElement, code string) (descCode string, named
 	vfItem := e.itemKey
 	vfIndex := e.indexKey
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
-	return fmt.Sprintf(`
-func ()string{
+	return fmt.Sprintf(`func ()string{
   var c = ""
 
   for index, item := range lookInterfaceToSlice(%s, "%s") {
@@ -67,8 +66,7 @@ func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedS
 		panic(err)
 	}
 
-	return fmt.Sprintf(`
-func ()string{
+	return fmt.Sprintf(`func ()string{
   if interfaceToBool(%s) {return %s}
   return ""
 }()`, condition, code), nil
@@ -81,8 +79,7 @@ type VSlotDirective struct {
 
 func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
 	// 插槽支持传递props, 需要有自己的作用域, 所以需要使用闭包实现
-	code = fmt.Sprintf(`
-func(props map[string]interface{}) string{
+	code = fmt.Sprintf(`func(props map[string]interface{}) string{
 	%s := extendMap(map[string]interface{}{"%s": props}, %s)
 	return %s
 }`, DataKey, e.propsKey, DataKey, code)
