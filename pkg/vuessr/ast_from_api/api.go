@@ -102,6 +102,20 @@ func (p MemberExpression) GetKey() string {
 	return parentKey + currKey
 }
 
+// a.b.c这样的读取成员变量表达式
+type CallExpression struct {
+	Arguments []Node `json:"arguments"`
+	Callee    Node   `json:"callee"`
+}
+
+func (c CallExpression) GetFuncName() string {
+	switch t := c.Callee.Assert().(type) {
+	case Identifier:
+		return t.Name
+	}
+	return ""
+}
+
 var nodeMap = map[string]interface{}{
 	"Program":             Program{},
 	"ExpressionStatement": ExpressionStatement{},
@@ -113,13 +127,17 @@ var nodeMap = map[string]interface{}{
 	"ObjectExpression":    ObjectExpression{},
 	"Property":            Property{},
 	"MemberExpression":    MemberExpression{},
+	"CallExpression":      CallExpression{},
 }
 
 func (n Node) Assert() interface{} {
-	typ := n["type"].(string)
+	typ,ok := n["type"].(string)
+	if !ok{
+		return nil
+	}
 	entity, ok := nodeMap[typ]
 	if !ok {
-		log.Errorf("unhand type:%s", typ)
+		log.Errorf("unhand type:%s, %+v", typ, n)
 		return nil
 	}
 

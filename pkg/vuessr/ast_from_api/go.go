@@ -56,6 +56,10 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		arg := genGoCodeByNode(t.Argument, dataKey)
 		return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
 	case ObjectExpression:
+		if len(t.Properties) == 0 {
+			return "nil"
+		}
+
 		// 对象, 翻译成map[string]interface{}
 		var mapCode = "map[string]interface{}"
 		mapCode += "{"
@@ -68,7 +72,13 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		mapCode += "}"
 
 		return mapCode
-
+	case CallExpression:
+		name := t.GetFuncName()
+		args := make([]string, len(t.Arguments))
+		for i, v := range t.Arguments {
+			args[i] = genGoCodeByNode(v, dataKey)
+		}
+		return fmt.Sprintf("%s(%s)", name, strings.Join(args,","))
 	default:
 		panic(t)
 		//bs,_:=json.Marshal(t)

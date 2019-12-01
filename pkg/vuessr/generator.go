@@ -526,14 +526,30 @@ func interface2Slice(s interface{}) (d []interface{}) {
 	return
 }
 
+var properties = map[string]func(data interface{})interface{}{
+"length": func(data interface{}) interface{}{
+	return len(interface2Slice(data))
+},
+}
+
 func shouldLookInterface(data interface{}, key string) (desc interface{}, exist bool) {
 	m, ok := data.(map[string]interface{})
 	if !ok {
 		return nil, false
 	}
+    
 
 	kk := strings.Split(key, ".")
-	c, ok := m[kk[0]]
+
+key:=kk[0]
+    if len(kk)==1{
+switch t:=m.(type){
+"string":
+    if p,ok:=properties[key]
+	return 
+}
+}
+	c, ok := m[key]
 	if len(kk) == 1 {
 		if !ok {
 			return nil, false
