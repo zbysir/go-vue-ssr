@@ -22,35 +22,88 @@ func TestGenComponentRenderFunc(t *testing.T) {
 	t.Log(code)
 }
 
+func TestShouldLookInterface(t *testing.T) {
+	d, exist := shouldLookInterface([]int64{1, 3}, "length")
+	t.Log(exist, d)
+}
 
+func interface2Slice(s interface{}) (d []interface{}) {
+	switch a := s.(type) {
+	case []interface{}:
+		return a
+	case []map[string]interface{}:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int64:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []int32:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []string:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	case []float64:
+		d = make([]interface{}, len(a))
+		for i, v := range a {
+			d[i] = v
+		}
+	}
+	return
+}
 
 func shouldLookInterface(data interface{}, key string) (desc interface{}, exist bool) {
-	m, ok := data.(map[string]interface{})
-	if !ok {
-		return nil, false
-	}
-
+	m, isObj := data.(map[string]interface{})
 
 	kk := strings.Split(key, ".")
+	currKey := kk[0]
 
-	key:=kk[0]
-	if len(kk)==1{
-		switch t:=data.(type){
-		case "string":
-			if p,ok:=properties[key];ok{
-				return p()
-			}
+	// 如果是对象, 则继续查找下一级
+	if len(kk) != 1 && isObj {
+		c, ok := m[currKey]
+		if !ok {
 			return
 		}
+		return shouldLookInterface(c, strings.Join(kk[1:], "."))
 	}
-	c, ok := m[key]
+
 	if len(kk) == 1 {
-		if !ok {
-			return nil, false
+		if isObj {
+			c, ok := m[currKey]
+			if !ok {
+				return
+			}
+			return c, true
+		} else {
+			switch currKey {
+			case "length":
+				switch t := data.(type) {
+				// string
+				case string:
+					return len(t), true
+				default:
+					// slice
+					return len(interface2Slice(t)), true
+				}
+			}
 		}
-
-		return c, true
+	} else {
+		// key不只有一个, 但是data不是对象, 说明出现了undefined的问题, 直接return
+		return
 	}
 
-	return shouldLookInterface(c, strings.Join(kk[1:], "."))
+	return
 }
