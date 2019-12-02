@@ -37,7 +37,7 @@ html = vuetpl.XComponent_helloworld()
 **support**
 - v-if
 - v-for
-- v-bind
+- v-bind (support shorthands)
 - dynamically style
 - dynamically class
 - named slot
@@ -49,7 +49,6 @@ html = vuetpl.XComponent_helloworld()
   - `.length`  
 
 **not support**
-- shorthands(eg. @ :), all of shorthands are unsupported, cause the xml parser.
 - v-on
 - v-show
 

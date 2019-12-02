@@ -19,3 +19,13 @@ func TestX(t *testing.T) {
 
 	t.Log(html)
 }
+
+func TestVIf(t *testing.T) {
+	html := vuetpl.XComponent_vif(&vuetpl.Options{
+		Props: map[string]interface{}{
+			"name":        "bysir",
+		},
+	})
+
+	t.Log(html)
+}
