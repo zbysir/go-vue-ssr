@@ -1,16 +1,16 @@
 package vuessr
 
 import (
-	"encoding/xml"
+	"golang.org/x/net/html"
 	"testing"
 )
 
 func TestVFor(t *testing.T) {
-	d := getVForDirective(xml.Attr{Value:"item in list"})
+	d := getVForDirective(html.Attribute{Val: "item in list"})
 	t.Log(d.Exec(nil, `"<div></div>"`))
 }
 
 func TestVIf(t *testing.T) {
-	d := getVIfDirective(xml.Attr{Value:"isShow"})
+	d := getVIfDirective(html.Attribute{Val: "isShow"})
 	t.Log(d.Exec(nil, `"<div></div>"`))
 }

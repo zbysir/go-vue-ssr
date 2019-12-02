@@ -7,7 +7,7 @@ import (
 
 func TestGenAllFile(t *testing.T) {
 	//err := GenAllFile(`/Users/bysir/go/src/github.com/bysir-zl/vue-ssr/example/render_func`, `/Users/bysir/go/src/github.com/bysir-zl/vue-ssr/genera`)
-	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\render_func`, `Z:\go_path\src\github.com\bysir-zl\vue-ssr\genera`)
+	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\render_func`, `Z:\go_path\src\github.com\bysir-zl\vue-ssr\internal\vuetpl`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -105,30 +105,44 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 	var attrsKeys []string
 
 	for _, v := range e.Attrs {
-		if v.Name.Space == "v-bind" {
-			props[v.Name.Local] = v.Value
-		} else if strings.HasPrefix(v.Name.Local, "v-") || strings.HasPrefix(v.Name.Space, "v-") {
-			// v-if="": local
-			// v-slot:name="" : space
-			// v-show="": local
-			name := v.Name.Local
+		oriKey := v.Key
+		ss := strings.Split(oriKey, ":")
+		nameSpace := "-"
+		key := oriKey
+		if len(ss) == 2 {
+			key = ss[1]
+			nameSpace = ss[0]
+		}
+
+		if nameSpace == "v-bind" || nameSpace == "" {
+			// v-bind & shorthands
+			props[key] = v.Val
+		} else if strings.HasPrefix(oriKey, "v-") {
+			// 指令
+			// v-if=""
+			// v-slot:name=""
+			// v-show=""
 			switch {
-			case v.Name.Local == "v-for":
-				ds[name] = getVForDirective(v)
-			case v.Name.Local == "v-if":
-				ds[name] = getVIfDirective(v)
-			case v.Name.Space == "v-slot":
-				ds[name] = getVSlotDirective(v)
+			case key == "v-for":
+				ds["v-for"] = getVForDirective(v)
+			case key == "v-if":
+				ds["v-if"] = getVIfDirective(v)
+			case key == "v-else-if":
+				ds["v-else-if"] = getVElseIfDirective(v)
+			case key == "v-else":
+				ds["v-else"] = getVElseDirective(v)
+			case nameSpace == "v-slot":
+				ds["v-slot"] = getVSlotDirective(v)
 			}
-		} else if v.Name.Local == "class" {
-			ss := strings.Split(v.Value, " ")
+		} else if v.Key == "class" {
+			ss := strings.Split(v.Val, " ")
 			for _, v := range ss {
 				if v != "" {
 					class = append(class, v)
 				}
 			}
-		} else if v.Name.Local == "style" {
-			ss := strings.Split(v.Value, ";")
+		} else if v.Key == "style" {
+			ss := strings.Split(v.Val, ";")
 			for _, v := range ss {
 				v = strings.Trim(v, " ")
 				ss := strings.Split(v, ":")
@@ -141,11 +155,11 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 				styleKeys = append(styleKeys, key)
 			}
 		} else {
-			key := v.Name.Local
-			if v.Name.Space != "" {
-				key = v.Name.Space + ":" + v.Name.Local
+			key := v.Key
+			if v.Namespace != "" {
+				key = v.Namespace + ":" + v.Key
 			}
-			attrs[key] = v.Value
+			attrs[key] = v.Val
 			attrsKeys = append(attrsKeys, key)
 		}
 	}

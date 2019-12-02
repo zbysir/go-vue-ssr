@@ -1,9 +1,9 @@
 package vuessr
 
 import (
-	"encoding/xml"
 	"fmt"
 	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
+	"golang.org/x/net/html"
 	"strings"
 )
 
@@ -57,11 +57,11 @@ return c
 }
 
 type VIfDirective struct {
-	condition string
+	Condition string
 }
 
 func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
-	condition, err := ast_from_api.JsCode2Go(e.condition, DataKey)
+	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -70,6 +70,29 @@ func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedS
   if interfaceToBool(%s) {return %s}
   return ""
 }()`, condition, code), nil
+}
+
+type VElseIfDirective struct {
+	Condition string
+}
+
+func (e VElseIfDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
+	if err != nil {
+		panic(err)
+	}
+
+	return fmt.Sprintf(`func ()string{
+  if interfaceToBool(%s) {return %s}
+  return ""
+}()`, condition, code), nil
+}
+
+type VElseDirective struct {
+}
+
+func (e VElseDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+	return code, nil
 }
 
 type VSlotDirective struct {
@@ -94,8 +117,8 @@ func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, name
 }
 
 // raw: 指令的值
-func getVForDirective(attr xml.Attr) (d VForDirective) {
-	val := attr.Value
+func getVForDirective(attr html.Attribute) (d VForDirective) {
+	val := attr.Val
 
 	ss := strings.Split(val, " in ")
 	d.arrayKey = strings.Trim(ss[1], " ")
@@ -116,16 +139,29 @@ func getVForDirective(attr xml.Attr) (d VForDirective) {
 	return
 }
 
-// raw: 指令的值
-func getVIfDirective(attr xml.Attr) (d VIfDirective) {
-	d.condition = strings.Trim(attr.Value, " ")
+func getVIfDirective(attr html.Attribute) (d VIfDirective) {
+	d.Condition = strings.Trim(attr.Val, " ")
 	return
 }
 
-// slot可以传递props, 为了解决这个问题, 可以使用func (slotCode map[string]string, name string, propsKey string, props map[string]interface{}){}()闭包实现
-func getVSlotDirective(attr xml.Attr) (d VSlotDirective) {
-	d.slotName = attr.Name.Local
-	d.propsKey = attr.Value
+func getVElseIfDirective(attr html.Attribute) (d VElseIfDirective) {
+	d.Condition = strings.Trim(attr.Val, " ")
+	return
+}
+
+func getVElseDirective(attr html.Attribute) (d VElseDirective) {
+	return
+}
+
+func getVSlotDirective(attr html.Attribute) (d VSlotDirective) {
+	oriKey := attr.Key
+	key := oriKey
+	ss := strings.Split(oriKey, ":")
+	if len(ss) == 2 {
+		key = ss[1]
+	}
+	d.slotName = key
+	d.propsKey = attr.Val
 	// 不应该为空, 否则可能会导致生成的go代码有误
 	if d.propsKey == "" {
 		d.propsKey = "slotProps"

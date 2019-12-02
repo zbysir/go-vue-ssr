@@ -1,16 +1,14 @@
 package vuessr
 
 import (
-	"encoding/xml"
-	"fmt"
-	"io"
+	"golang.org/x/net/html"
 	"os"
 )
 
 type Element struct {
 	Text     string // 只是字
 	TagName  string
-	Attrs    []xml.Attr
+	Attrs    []html.Attribute
 	Children []*Element
 }
 
@@ -21,7 +19,6 @@ func H(filename string) (*Element, error) {
 	if err != nil {
 		panic(err)
 	}
-
 
 	// 处理@/:缩写, 缩写不能通过xml解析
 	// ps: 这个正则有点难写, 先不做
@@ -39,31 +36,23 @@ func H(filename string) (*Element, error) {
 	//var buff bytes.Buffer
 	//buff.Write(bs)
 
-	decoder := xml.NewDecoder(file)
+	decoder := html.NewTokenizer(file)
 	var stack []*Element
 	var currentElement *Element
 
 	for {
-		token, err := decoder.Token()
-
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return nil, err
-		}
-
-		switch token := token.(type) {
-		case xml.StartElement:
+		token := decoder.Token()
+		switch token.Type {
+		case html.StartTagToken:
 			stack = append(stack, &Element{
 				"",
-				token.Name.Local,
+				token.Data,
 				token.Attr,
 				[]*Element{},
 			})
 
 			break
-		case xml.EndElement:
+		case html.EndTagToken:
 			currentNode := stack[len(stack)-1]
 			stack = stack[:len(stack)-1]
 
@@ -76,13 +65,18 @@ func H(filename string) (*Element, error) {
 			currentElement = preNode
 
 			break
-		case xml.CharData:
+		case html.TextToken:
 			if len(stack) == 0 {
 				break
 			}
 
 			lastNode := stack[len(stack)-1]
-			lastNode.Children = append(lastNode.Children, &Element{Text: string(token[:]), TagName: "__string"})
+			lastNode.Children = append(lastNode.Children, &Element{Text: string(token.Data[:]), TagName: "__string"})
+			break
+		}
+
+		tp := decoder.Next()
+		if tp == html.ErrorToken {
 			break
 		}
 	}
