@@ -5,8 +5,10 @@ vue server side render but golang
 - https://markus.oberlehner.net/blog/how-to-drastically-reduce-estimated-input-latency-and-time-to-interactive-of-ssr-vue-applications/
 - https://mp.weixin.qq.com/s?__biz=MzUxMzcxMzE5Ng==&mid=2247485601&amp;idx=1&amp;sn=97a45254a771d13789faed81316b465a&source=41#wechat_redirect
 
+虽然vuessr有优缺点, 但我认为vue的模板格式清晰易懂, 用来替换golang的tpl引擎或者其他模板引擎(如raymond)是有价值的.
+
 ## feature
-基于字符串拼接 而不是 虚拟节点来渲染vue组件, 这样做当然是有好有坏的
+基于字符串拼接 而不是 虚拟节点来渲染vue组件, 当然这样做有好有坏.
 
 好处就是性能至少能提升1个数量级, 坏处就是舍去了vue的数据绑定特性.
 
@@ -28,7 +30,7 @@ vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
 
 ### step3: run
 ```go
-vuetpl.XComponent_helloworld()
+html = vuetpl.XComponent_helloworld()
 ```
 
 ## vue features
@@ -41,6 +43,10 @@ vuetpl.XComponent_helloworld()
 - named slot
 - slot scope
 - component
+- expression by AST
+  - `+ && || !`
+  - `function call`
+  - `.length`  
 
 **not support**
 - shorthands(eg. @ :), all of shorthands are unsupported, cause the xml parser.
@@ -48,3 +54,5 @@ vuetpl.XComponent_helloworld()
 - v-show
 
 **todo**
+- v-else
+- v-else-if
