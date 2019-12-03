@@ -2,7 +2,7 @@ package vuessr
 
 import (
 	"fmt"
-	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast_from_api"
 	"strings"
 )
 

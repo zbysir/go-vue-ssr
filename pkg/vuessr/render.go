@@ -2,7 +2,7 @@ package vuessr
 
 import (
 	"fmt"
-	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast_from_api"
 	"regexp"
 	"strings"
 )
@@ -138,7 +138,6 @@ const (
 
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
-// todo 如果将slot改为map[string]string应该就可以实现多个slot.
 //
 // 用节点直接渲染可能会有的性能问题:
 // - 处理文字时会使用正则来匹配{{变量, 会消耗过多性能
@@ -147,7 +146,7 @@ const (
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
-func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string]string) {
+func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
 	defaultSlotCode := ""
@@ -155,12 +154,15 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 	namedSlotCode = map[string]string{}
 	if len(e.Children) != 0 {
 		for _, v := range e.Children {
-			childCode, childNamedSlotCode := v.RenderFunc(app)
-			if defaultSlotCode == "" {
-				defaultSlotCode += childCode
-			} else {
-				defaultSlotCode += "+" + childCode
+			// 跳过生成else节点的代码, 真正生成else节点的代码在if节点中
+			if v.VElse || v.VElseIf {
+				continue
 			}
+			childCode, childNamedSlotCode := v.GenCode(app)
+			if defaultSlotCode != "" {
+				defaultSlotCode += "+"
+			}
+			defaultSlotCode += childCode
 
 			for k, v := range childNamedSlotCode {
 				namedSlotCode[k] = v
@@ -197,26 +199,107 @@ func (e *VueElement) RenderFunc(app *App) (code string, namedSlotCode map[string
 		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
 		// 基础html标签
+		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		attrs := genAttrCode(e)
 		attrs = injectVal(attrs)
-		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
 		// 内联元素, slot应该放在标签里
 		eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
 	}
 
-	// 处理指令 如v-for
+	// 优先级 vSlot > vIf > vFor, 所以先处理VFor
 
-	eleCode, namedSlotCode2 := e.Directives.Exec(e, eleCode)
-	for i, v := range namedSlotCode2 {
-		namedSlotCode[i] = v
+	if e.VFor != nil {
+		eleCode = genVFor(e.VFor, eleCode)
+	}
+
+	if e.VSlot != nil {
+		var namedSlotCode2 map[string]string
+		eleCode, namedSlotCode2 = genVSlot(e.VSlot, eleCode)
+		for i, v := range namedSlotCode2 {
+			namedSlotCode[i] = v
+		}
+	}
+
+	if e.VIf != nil {
+		var namedSlotCode2 map[string]string
+		eleCode, namedSlotCode2 = genVIf(e.VIf, eleCode, app)
+		for i, v := range namedSlotCode2 {
+			namedSlotCode[i] = v
+		}
 	}
 
 	return eleCode, namedSlotCode
 }
 
-// 转义字符串中的", 以免和go代码中的"冲突
-func encodeString(src string) string {
-	return strings.Replace(src, `"`, `\"`, -1)
+func genVIf(e *VIf, srcCode string, app *App) (code string, namedSlotCode map[string]string) {
+	// 自己的conditions
+	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
+	if err != nil {
+		panic(err)
+	}
+	namedSlotCode = map[string]string{}
+
+	// open if and func
+	code = fmt.Sprintf(`func ()string{
+if interfaceToBool(%s) {return %s`, condition, srcCode)
+	// 继续处理else节点
+	for _, v := range e.ElseIf {
+		eleCode, namedSlotCode2 := v.VueElement.GenCode(app)
+		for k, v := range namedSlotCode2 {
+			namedSlotCode[k] = v
+		}
+		switch v.Types {
+		case "else":
+			code += fmt.Sprintf(`} else { return %s`, eleCode)
+		case "elseif":
+			condition, err := ast_from_api.JsCode2Go(v.Condition, DataKey)
+			if err != nil {
+				panic(err)
+			}
+			code += fmt.Sprintf(`} else if interfaceToBool(%s) { return %s`, condition, eleCode)
+		}
+	}
+
+	// close if and func
+	code += `
+}
+return ""
+}()`
+	return
+}
+
+func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
+	namedSlotCode = map[string]string{
+		e.SlotName: fmt.Sprintf(`func(props map[string]interface{}) string{
+	%s := extendMap(map[string]interface{}{"%s": props}, %s)
+	return %s
+}`, DataKey, e.PropsKey, DataKey, srcCode),
+	}
+
+	// 插槽会将原来的子代码去掉, 并将代码放在namedSlot里.
+	code = `""`
+	return
+}
+func genVFor(e *VFor, srcCode string) (code string) {
+	vfArray := e.ArrayKey
+	vfItem := e.ItemKey
+	vfIndex := e.IndexKey
+	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
+	return fmt.Sprintf(`func ()string{
+  var c = ""
+
+  for index, item := range lookInterfaceToSlice(%s, "%s") {
+    c += func(xdata map[string]interface{}) string{
+        %s := extendMap(map[string]interface{}{
+          "%s": index,
+          "%s": item,
+        }, xdata)
+
+        return %s
+    }(%s)
+  }
+return c
+}()`, DataKey, vfArray, DataKey, vfIndex, vfItem, srcCode, DataKey)
 }
 
 func NewApp() *App {

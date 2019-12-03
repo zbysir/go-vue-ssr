@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bysir-zl/vue-ssr/internal/vuetpl"
+	"github.com/bysir-zl/go-vue-ssr/internal/vuetpl"
 	"testing"
 )
 
@@ -23,7 +23,8 @@ func TestX(t *testing.T) {
 func TestVIf(t *testing.T) {
 	html := vuetpl.XComponent_vif(&vuetpl.Options{
 		Props: map[string]interface{}{
-			"name":        "bysir",
+			"name":  "bysir",
+			//"name2": "b2",
 		},
 	})
 

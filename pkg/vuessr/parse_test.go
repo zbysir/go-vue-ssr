@@ -6,7 +6,7 @@ import (
 )
 
 func TestH(t *testing.T) {
-	e,err:=H(`Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\render_func\vif.vue`)
+	e,err:=H(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\vif.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}

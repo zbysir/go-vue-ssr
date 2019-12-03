@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bysir-zl/vue-ssr/internal/vuetpl"
+	"github.com/bysir-zl/go-vue-ssr/internal/vuetpl"
 	"net/http"
 )
 

@@ -20,7 +20,7 @@ vue server side render but golang
 
 ### step 1: install
 ```
-go get github.com/bysir-zl/vue-ssr
+go get github.com/bysir-zl/go-vue-ssr
 ```
 ### step 2: genera
 ```
@@ -55,3 +55,4 @@ html = vuetpl.XComponent_helloworld()
 **todo**
 - v-else
 - v-else-if
+- inject / provider

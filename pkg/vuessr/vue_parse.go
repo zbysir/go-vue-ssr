@@ -5,17 +5,49 @@ import (
 )
 
 type VueElement struct {
-	IsRoot     bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
-	TagName    string
-	Text       string
-	Attrs      map[string]string // 除去指令/props/style/class之外的属性
-	AttrsKeys  []string          // 属性的key, 用来保证顺序
-	Directives Directives
-	Class      []string          // 静态class
-	Style      map[string]string // 静态style
-	StyleKeys  []string          // 样式的key, 用来保证顺序
-	Props      Props             // props, 包括动态的class和style
-	Children   []*VueElement
+	IsRoot    bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
+	TagName   string
+	Text      string
+	Attrs     map[string]string // 除去指令/props/style/class之外的属性
+	AttrsKeys []string          // 属性的key, 用来保证顺序
+	// Directives       GenCodeDirectives // genCode指令(如v-if, v-for), 在编译期间运行
+	ElseIfConditions []ElseIf          // 将与if指令匹配的elseif/else关联在一起
+	Class            []string          // 静态class
+	Style            map[string]string // 静态style
+	StyleKeys        []string          // 样式的key, 用来保证顺序
+	Props            Props             // props, 包括动态的class和style
+	Children         []*VueElement     // 子节点
+	VIf              *VIf              // 处理v-if需要的数据
+	VFor             *VFor
+	VSlot            *VSlot
+	VElse            bool // 如果是VElse节点则不会生成代码(而是在vif里生成代码)
+	VElseIf          bool
+}
+
+type ElseIf struct {
+	Types      string // else / elseif
+	Condition  string // elseif语句的condition表达式
+	VueElement *VueElement
+}
+
+type VIf struct {
+	Condition string // 条件表达式
+	ElseIf    []*ElseIf
+}
+
+func (p *VIf) AddElseIf(v *ElseIf) {
+	p.ElseIf = append(p.ElseIf, v)
+}
+
+type VFor struct {
+	ArrayKey string
+	ItemKey  string
+	IndexKey string
+}
+
+type VSlot struct {
+	SlotName string
+	PropsKey string
 }
 
 type Props map[string]string
@@ -96,100 +128,198 @@ type VueElementParser struct {
 }
 
 func (p VueElementParser) Parse(e *Element) *VueElement {
-	props := map[string]string{}
-	ds := Directives{}
-	var class []string
-	style := map[string]string{}
-	var styleKeys []string
-	attrs := map[string]string{}
-	var attrsKeys []string
+	vs := p.parseList([]*Element{e})
+	return vs[0]
+}
 
-	for _, v := range e.Attrs {
-		oriKey := v.Key
-		ss := strings.Split(oriKey, ":")
-		nameSpace := "-"
-		key := oriKey
-		if len(ss) == 2 {
-			key = ss[1]
-			nameSpace = ss[0]
-		}
+// 递归处理同级节点
+func (p VueElementParser) parseList(es []*Element) []*VueElement {
+	vs := make([]*VueElement, len(es))
 
-		if nameSpace == "v-bind" || nameSpace == "" {
-			// v-bind & shorthands
-			props[key] = v.Val
-		} else if strings.HasPrefix(oriKey, "v-") {
-			// 指令
-			// v-if=""
-			// v-slot:name=""
-			// v-show=""
-			switch {
-			case key == "v-for":
-				ds["v-for"] = getVForDirective(v)
-			case key == "v-if":
-				ds["v-if"] = getVIfDirective(v)
-			case key == "v-else-if":
-				ds["v-else-if"] = getVElseIfDirective(v)
-			case key == "v-else":
-				ds["v-else"] = getVElseDirective(v)
-			case nameSpace == "v-slot":
-				ds["v-slot"] = getVSlotDirective(v)
+	var ifVueEle *VueElement
+	for i, e := range es {
+		props := map[string]string{}
+		//ds := GenCodeDirectives{}
+		var class []string
+		style := map[string]string{}
+		var styleKeys []string
+		attrs := map[string]string{}
+		var attrsKeys []string
+		var vIf *VIf
+		var vFor *VFor
+		var vSlot *VSlot
+
+		// 标记节点是不是if
+		var vElse *ElseIf
+		var vElseIf *ElseIf
+
+		for _, attr := range e.Attrs {
+			oriKey := attr.Key
+			ss := strings.Split(oriKey, ":")
+			nameSpace := "-"
+			key := oriKey
+			if len(ss) == 2 {
+				key = ss[1]
+				nameSpace = ss[0]
 			}
-		} else if v.Key == "class" {
-			ss := strings.Split(v.Val, " ")
-			for _, v := range ss {
-				if v != "" {
-					class = append(class, v)
+
+			if nameSpace == "v-bind" || nameSpace == "" {
+				// v-bind & shorthands
+				props[key] = attr.Val
+			} else if strings.HasPrefix(oriKey, "v-") {
+				// 指令
+				// v-if=""
+				// v-slot:name=""
+				// v-show=""
+				switch {
+				case key == "v-for":
+					val := attr.Val
+
+					ss := strings.Split(val, " in ")
+					arrayKey := strings.Trim(ss[1], " ")
+
+					left := strings.Trim(ss[0], " ")
+					var itemKey string
+					var indexKey string
+					// (item, index) in list
+					if strings.Contains(left, ",") {
+						left = strings.Trim(left, "()")
+						ss := strings.Split(left, ",")
+						itemKey = strings.Trim(ss[0], " ")
+						indexKey = strings.Trim(ss[1], " ")
+					} else {
+						itemKey = left
+						indexKey = "$index"
+					}
+
+					vFor = &VFor{
+						ArrayKey: arrayKey,
+						ItemKey:  itemKey,
+						IndexKey: indexKey,
+					}
+				case key == "v-if":
+					vIf = &VIf{
+						Condition: strings.Trim(attr.Val, " "),
+						ElseIf:    nil,
+					}
+				case nameSpace == "v-slot":
+					oriKey := attr.Key
+					key := oriKey
+					ss := strings.Split(oriKey, ":")
+					if len(ss) == 2 {
+						key = ss[1]
+					}
+					slotName := key
+					propsKey := attr.Val
+					// 不应该为空, 否则可能会导致生成的go代码有误
+					if propsKey == "" {
+						propsKey = "slotProps"
+					}
+					vSlot = &VSlot{
+						SlotName: slotName,
+						PropsKey: propsKey,
+					}
+				case key == "v-else-if":
+					vElseIf = &ElseIf{
+						Types:     "elseif",
+						Condition: strings.Trim(attr.Val, " "),
+					}
+				case key == "v-else":
+					vElse = &ElseIf{
+						Types:     "else",
+						Condition: strings.Trim(attr.Val, " "),
+					}
 				}
-			}
-		} else if v.Key == "style" {
-			ss := strings.Split(v.Val, ";")
-			for _, v := range ss {
-				v = strings.Trim(v, " ")
-				ss := strings.Split(v, ":")
-				if len(ss) != 2 {
-					continue
+			} else if attr.Key == "class" {
+				ss := strings.Split(attr.Val, " ")
+				for _, v := range ss {
+					if v != "" {
+						class = append(class, v)
+					}
 				}
-				key := strings.Trim(ss[0], " ")
-				val := strings.Trim(ss[1], " ")
-				style[key] = val
-				styleKeys = append(styleKeys, key)
+			} else if attr.Key == "style" {
+				ss := strings.Split(attr.Val, ";")
+				for _, v := range ss {
+					v = strings.Trim(v, " ")
+					ss := strings.Split(v, ":")
+					if len(ss) != 2 {
+						continue
+					}
+					key := strings.Trim(ss[0], " ")
+					val := strings.Trim(ss[1], " ")
+					style[key] = val
+					styleKeys = append(styleKeys, key)
+				}
+			} else {
+				key := attr.Key
+				if attr.Namespace != "" {
+					key = attr.Namespace + ":" + attr.Key
+				}
+				attrs[key] = attr.Val
+				attrsKeys = append(attrsKeys, key)
 			}
-		} else {
-			key := v.Key
-			if v.Namespace != "" {
-				key = v.Namespace + ":" + v.Key
+		}
+
+		ch := p.parseList(e.Children)
+
+		isRoot := false
+		if !p.hasRoot {
+			// 最外层的template下的节点是根节点
+			if e.TagName == "template" {
+				isRoot = true
+				p.hasRoot = true
 			}
-			attrs[key] = v.Val
-			attrsKeys = append(attrsKeys, key)
 		}
-	}
 
-	ch := make([]*VueElement, len(e.Children))
-
-	isRoot := false
-	if !p.hasRoot {
-		if e.TagName == "template" {
-			isRoot = true
-			p.hasRoot = true
+		for _, v := range ch {
+			v.IsRoot = isRoot
 		}
+
+		v := &VueElement{
+			IsRoot:           false,
+			TagName:          e.TagName,
+			Text:             e.Text,
+			Attrs:            attrs,
+			AttrsKeys:        attrsKeys,
+			ElseIfConditions: []ElseIf{},
+			//Directives:       ds,
+			Class:     class,
+			Style:     style,
+			StyleKeys: styleKeys,
+			Props:     props,
+			Children:  ch,
+			VIf:       vIf,
+			VFor:      vFor,
+			VSlot:     vSlot,
+			VElse:     vElse != nil,
+			VElseIf:   vElseIf != nil,
+		}
+
+		// 记录vif, 接下来的elseif将与这个节点关联
+		if vIf != nil {
+			ifVueEle = v
+		} else if e.TagName != "__string" && vElse == nil && vElseIf == nil {
+			ifVueEle = nil
+		}
+
+		if vElseIf != nil {
+			if ifVueEle == nil {
+				panic("v-else-if must below v-if")
+			}
+			vElseIf.VueElement = v
+			ifVueEle.VIf.AddElseIf(vElseIf)
+		}
+		if vElse != nil {
+			if ifVueEle == nil {
+				panic("v-else must below v-if")
+			}
+			vElse.VueElement = v
+			ifVueEle.VIf.AddElseIf(vElse)
+			ifVueEle = nil
+		}
+
+		vs[i] = v
 	}
 
-	for i, v := range e.Children {
-		ch[i] = p.Parse(v)
-		ch[i].IsRoot = isRoot
-	}
-
-	v := &VueElement{
-		TagName:    e.TagName,
-		Text:       e.Text,
-		Attrs:      attrs,
-		AttrsKeys:  attrsKeys,
-		Directives: ds,
-		Class:      class,
-		Style:      style,
-		StyleKeys:  styleKeys,
-		Props:      props,
-		Children:   ch,
-	}
-	return v
+	return vs
 }

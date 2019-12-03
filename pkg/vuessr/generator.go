@@ -16,7 +16,7 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 	if err != nil {
 		panic(err)
 	}
-	code, _ := ve.RenderFunc(app)
+	code, _ := ve.GenCode(app)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
 	//code = strings.Replace(code, `"+"`, "", -1)

@@ -3,8 +3,8 @@ package ast_from_api
 import (
 	"encoding/json"
 	"errors"
-	"github.com/bysir-zl/vue-ssr/internal/pkg/log"
-	"github.com/bysir-zl/vue-ssr/internal/pkg/obj"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/obj"
 	"reflect"
 )
 

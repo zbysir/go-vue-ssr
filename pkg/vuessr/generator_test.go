@@ -6,8 +6,8 @@ import (
 )
 
 func TestGenAllFile(t *testing.T) {
-	//err := GenAllFile(`/Users/bysir/go/src/github.com/bysir-zl/vue-ssr/example/render_func`, `/Users/bysir/go/src/github.com/bysir-zl/vue-ssr/genera`)
-	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\render_func`, `Z:\go_path\src\github.com\bysir-zl\vue-ssr\internal\vuetpl`)
+	//err := GenAllFile(`/Users/bysir/go/src/github.com/bysir-zl/go-vue-ssr/example/render_func`, `/Users/bysir/go/src/github.com/bysir-zl/go-vue-ssr/genera`)
+	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func`, `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\vuetpl`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +18,7 @@ func TestGenAllFile(t *testing.T) {
 func TestGenComponentRenderFunc(t *testing.T) {
 	app := NewApp()
 
-	code := genComponentRenderFunc(app, "gebera", "xx", `Z:\go_path\src\github.com\bysir-zl\vue-ssr\example\render_func\v-for.vue`)
+	code := genComponentRenderFunc(app, "gebera", "xx", `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\v-for.vue`)
 	t.Log(code)
 }
 

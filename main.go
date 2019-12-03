@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bysir-zl/vue-ssr/pkg/vuessr"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr"
 	"github.com/urfave/cli"
 	"os"
 )

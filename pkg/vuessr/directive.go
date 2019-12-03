@@ -2,25 +2,32 @@ package vuessr
 
 import (
 	"fmt"
-	"github.com/bysir-zl/vue-ssr/pkg/vuessr/ast_from_api"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast_from_api"
 	"golang.org/x/net/html"
 	"strings"
 )
 
+// 代码生成指令, 处理所有需要编译期间执行的指令. 暂不支持运行时自定义指令.
+// 不过可以自定义编译时指令.
+
+// 编译时指令分为两种, 一种是生成代码之后执行的指令, 一种是生成代码之前执行的指令
+// - 生成代码之前的指令中, 可以操作所有VueElement中的属性, 来达到提前修改数据的目的.
+// - 生成代码之后的指令中, 可以处理生成的代码, 可以使用正则修改代码, 更加灵活.
+
 // 指令:
 // 指令会影响当前节点的渲染, 返回修改后的go代码
 // 有一个特殊的指令: v-slot, 会将节点代码改为空, 并且写入到namedSlotCode里.
-type Directive interface {
-	Exec(e *VueElement, code string) (resCode string, namedSlotCode map[string]string)
+type GenCodeDirective interface {
+	Exec(e *VueElement, app *App, code string) (resCode string, namedSlotCode map[string]string)
 }
 
-type Directives map[string]Directive
+type GenCodeDirectives map[string]GenCodeDirective
 
-func (d Directives) Exec(e *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+func (d GenCodeDirectives) Exec(e *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{}
 	for _, v := range d {
 		var n2 map[string]string
-		code, n2 = v.Exec(e, code)
+		code, n2 = v.Exec(e, app, code)
 		for k, v := range n2 {
 			namedSlotCode[k] = v
 		}
@@ -34,7 +41,7 @@ type VForDirective struct {
 	indexKey string
 }
 
-func (e VForDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+func (e VForDirective) Exec(el *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
 	vfArray := e.arrayKey
 	vfItem := e.itemKey
 	vfIndex := e.indexKey
@@ -58,9 +65,16 @@ return c
 
 type VIfDirective struct {
 	Condition string
+	ElseIf    []VIfDirectiveElseIf
 }
 
-func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+type VIfDirectiveElseIf struct {
+	Types     string // elseif or else
+	Condition string // 条件表达式
+	Code      string // 子节点代码
+}
+
+func (e VIfDirective) Exec(el *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
 	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
 	if err != nil {
 		panic(err)
@@ -72,27 +86,8 @@ func (e VIfDirective) Exec(el *VueElement, code string) (descCode string, namedS
 }()`, condition, code), nil
 }
 
-type VElseIfDirective struct {
-	Condition string
-}
+func (e VIfDirective) AddElseIf(el *VueElement) () {
 
-func (e VElseIfDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
-	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
-	if err != nil {
-		panic(err)
-	}
-
-	return fmt.Sprintf(`func ()string{
-  if interfaceToBool(%s) {return %s}
-  return ""
-}()`, condition, code), nil
-}
-
-type VElseDirective struct {
-}
-
-func (e VElseDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
-	return code, nil
 }
 
 type VSlotDirective struct {
@@ -100,7 +95,7 @@ type VSlotDirective struct {
 	propsKey string
 }
 
-func (e VSlotDirective) Exec(el *VueElement, code string) (descCode string, namedSlotCode map[string]string) {
+func (e VSlotDirective) Exec(el *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
 	// 插槽支持传递props, 需要有自己的作用域, 所以需要使用闭包实现
 	code = fmt.Sprintf(`func(props map[string]interface{}) string{
 	%s := extendMap(map[string]interface{}{"%s": props}, %s)
@@ -141,15 +136,6 @@ func getVForDirective(attr html.Attribute) (d VForDirective) {
 
 func getVIfDirective(attr html.Attribute) (d VIfDirective) {
 	d.Condition = strings.Trim(attr.Val, " ")
-	return
-}
-
-func getVElseIfDirective(attr html.Attribute) (d VElseIfDirective) {
-	d.Condition = strings.Trim(attr.Val, " ")
-	return
-}
-
-func getVElseDirective(attr html.Attribute) (d VElseDirective) {
 	return
 }
 

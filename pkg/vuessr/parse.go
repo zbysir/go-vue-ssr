@@ -20,22 +20,6 @@ func H(filename string) (*Element, error) {
 		panic(err)
 	}
 
-	// 处理@/:缩写, 缩写不能通过xml解析
-	// ps: 这个正则有点难写, 先不做
-
-	//bs,err:=ioutil.ReadAll(file)
-	//if err != nil {
-	//	panic(err)
-	//}
-	//reg:=regexp.MustCompile(`<[\s\S]+? (:.*)=`)
-	//bs = reg.ReplaceAllFunc(bs, func(src []byte) []byte {
-	//	log.Infof("%s", src)
-	//	return src
-	//})
-	//
-	//var buff bytes.Buffer
-	//buff.Write(bs)
-
 	decoder := html.NewTokenizer(file)
 	var stack []*Element
 	var currentElement *Element
