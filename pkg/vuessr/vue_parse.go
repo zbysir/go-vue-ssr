@@ -100,15 +100,15 @@ func (p Props) CanBeAttr() Props {
 
 	a := Props{}
 	for k, v := range p {
-		if _, ok := html[k]; ok {
-			a[k] = v
+		if _, ok := html[k]; !ok {
 			continue
 		}
 
-		if strings.HasPrefix(k, "data-") {
-			a[k] = v
+		if !strings.HasPrefix(k, "data-") {
 			continue
 		}
+
+		a[k] = v
 	}
 	return a
 }

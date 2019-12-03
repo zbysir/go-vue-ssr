@@ -125,7 +125,7 @@ func GenAllFile(src, desc string) (err error) {
 
 	// buildin代码
 	code = fmt.Sprintf("package %s\n", pkgName) + buildInCode
-	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"build.go", []byte(code), 0666)
+	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"buildin.go", []byte(code), 0666)
 	if err != nil {
 		return
 	}
