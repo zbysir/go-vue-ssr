@@ -46,7 +46,7 @@ html = vuetpl.XComponent_helloworld()
 - slot scope
 - component
 - expression by AST
-  - `+ && || !`
+  - `+ && || !`￿￿￿￿
   - `function call`
   - `.length`
 
@@ -60,3 +60,5 @@ html = vuetpl.XComponent_helloworld()
 **todo**
 - inject / provider
 - function call: eg. {{calcHeight(srcHeight)}}
+- global var like vuex
+

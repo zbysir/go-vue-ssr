@@ -49,6 +49,19 @@ func H(filename string) (*Element, error) {
 			currentElement = preNode
 
 			break
+		case html.SelfClosingTagToken:
+			if len(stack) == 0 {
+				break
+			}
+
+			preNode := stack[len(stack)-1]
+			preNode.Children = append(preNode.Children, &Element{
+				"",
+				token.Data,
+				token.Attr,
+				[]*Element{},
+			})
+			currentElement = preNode
 		case html.TextToken:
 			if len(stack) == 0 {
 				break
