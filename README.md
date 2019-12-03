@@ -24,9 +24,11 @@ go get github.com/bysir-zl/go-vue-ssr
 ```
 ### step 2: genera
 ```
-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
+go-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
 ```
 将在./internal/vuetpl里生成go代码
+
+所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包
 
 ### step3: run
 ```go
@@ -35,24 +37,26 @@ html = vuetpl.XComponent_helloworld()
 
 ## vue features
 **support**
-- v-if
+- v-if v-else v-else-if
 - v-for
 - v-bind (support shorthands)
 - dynamically style
 - dynamically class
-- named slot
+- v-slot
 - slot scope
 - component
 - expression by AST
   - `+ && || !`
   - `function call`
-  - `.length`  
+  - `.length`
 
 **not support**
 - v-on
 - v-show
+- v-html: please use {{xx}} instead of it
+- v-text: please use {{xx}} instead of it
+- filter: please use function instead of it, eg. {{calcHeight(srcHeight)}}
 
 **todo**
-- v-else
-- v-else-if
 - inject / provider
+- function call: eg. {{calcHeight(srcHeight)}}
