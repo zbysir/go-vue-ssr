@@ -7,7 +7,7 @@ import (
 
 // 生成go代码
 // dataKey: 默认为options.data
-func JsCode2Go(code string, dataKey string) (goCode string, err error) {
+func Js2Go(code string, dataKey string) (goCode string, err error) {
 	// 用code包裹的原因是让"{x: 1}"这样的语法解析成对象, 而不是label
 	code = fmt.Sprintf("(%s)", code)
 	node, err := GetAST(code)

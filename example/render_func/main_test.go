@@ -37,3 +37,15 @@ func TestVIf(t *testing.T) {
 
 	t.Log(html)
 }
+
+func TestVDirective(t *testing.T) {
+	r := vuetpl.NewRender()
+	html := r.Component_directive(&vuetpl.Options{
+		Props: map[string]interface{}{
+			"name": "bysir",
+			"xclass": "v-animate",
+		},
+	})
+
+	t.Log(html)
+}

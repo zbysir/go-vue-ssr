@@ -2,15 +2,11 @@ package vuessr
 
 import (
 	"fmt"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast_from_api"
 	"regexp"
 	"strings"
 )
-
-type Render interface {
-	Render(app *App, data interface{}, slot string) string
-	RenderFunc(app *App, slot string) (function string)
-}
 
 type App struct {
 	Components map[string]struct{} // name=>node
@@ -26,6 +22,7 @@ type OptionsGen struct {
 	Slot            map[string]string // 插槽节点
 	DefaultSlotCode string            // 子节点code, 用于默认的插槽
 	NamedSlotCode   map[string]string // 具名插槽
+	Directives      Directives        // 指令代码
 }
 
 func sliceStringToGoCode(m []string) string {
@@ -51,7 +48,7 @@ func mapStringToGoCode(m map[string]string) string {
 	return c
 }
 
-func mapCodeToGoCode(m map[string]string, valueType string) string {
+func mapGoCodeToCode(m map[string]string, valueType string) string {
 	c := "map[string]" + valueType
 	c += "{"
 	for k, v := range m {
@@ -73,17 +70,17 @@ func sliceToGoCode(m []string) string {
 	return c
 }
 
-// 生成props代码
-func propsCode(m map[string]string) string {
+// 根据js代码生成go代码(基于js AST)
+func mapJsCodeToCode(m map[string]string) string {
 	if len(m) == 0 {
 		return "nil"
 	}
 	props := "map[string]interface{}"
 	props += "{"
 	for k, v := range m {
-		valueCode, err := ast_from_api.JsCode2Go(v, DataKey)
+		valueCode, err := ast_from_api.Js2Go(v, DataKey)
 		if err != nil {
-			panic(err)
+			log.Panicf("%v, %s", err, v)
 		}
 		props += fmt.Sprintf(`"%s": %s,`, k, valueCode)
 	}
@@ -96,7 +93,7 @@ func (o *OptionsGen) ToGoCode() string {
 	c := "&Options{"
 	if len(o.Props) != 0 {
 		props := "Props: "
-		props += propsCode(o.Props)
+		props += mapJsCodeToCode(o.Props)
 		c += props + ",\n"
 	}
 	if len(o.Attrs) != 0 {
@@ -111,6 +108,8 @@ func (o *OptionsGen) ToGoCode() string {
 	if len(o.StyleKeys) != 0 {
 		c += fmt.Sprintf("StyleKeys: %s,\n", sliceToGoCode(o.StyleKeys))
 	}
+
+	// slot
 	slot := map[string]string{}
 
 	children := o.DefaultSlotCode
@@ -122,8 +121,16 @@ func (o *OptionsGen) ToGoCode() string {
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
-	c += fmt.Sprintf("Slot: %s,\n", mapCodeToGoCode(slot, "namedSlotFunc"))
+	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "namedSlotFunc"))
+
+	// p
 	c += fmt.Sprintf("P: options,\n")
+
+	// directive
+	if len(o.Directives)!=0{
+		directive := mapJsCodeToCode(o.Directives)
+		c += fmt.Sprintf("Directives: %s,\n", directive)
+	}
 
 	c += "}"
 	return c
@@ -131,8 +138,8 @@ func (o *OptionsGen) ToGoCode() string {
 
 // 生成代码中的key
 const (
-	DataKey  = "this" // 变量作用域的key, 相当于js的this.
-	SlotKey  = "options.Slot"
+	DataKey = "this" // 变量作用域的key, 相当于js的this.
+	SlotKey = "options.Slot"
 )
 
 // 组件渲染,
@@ -202,7 +209,23 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 		attrs := genAttrCode(e)
 		attrs = injectVal(attrs)
 		// 内联元素, slot应该放在标签里
-		eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
+
+		options := OptionsGen{
+			Props:           e.Props,
+			Attrs:           e.Attrs,
+			Class:           e.Class,
+			Style:           e.Style,
+			StyleKeys:       e.StyleKeys,
+			Slot:            nil,
+			DefaultSlotCode: defaultSlotCode,
+			NamedSlotCode:   namedSlotCode,
+			Directives:      e.Directives,
+		}
+		optionsCode := options.ToGoCode()
+
+		// todo 判断动态节点与静态节点
+		//eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
+		eleCode = fmt.Sprintf(`r.Tag("%s", %s)`, e.TagName, optionsCode)
 	}
 
 	// 优先级 vSlot > vIf > vFor, 所以先处理VFor
@@ -232,7 +255,7 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 
 func genVIf(e *VIf, srcCode string, app *App) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
-	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
+	condition, err := ast_from_api.Js2Go(e.Condition, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -251,7 +274,7 @@ if interfaceToBool(%s) {return %s`, condition, srcCode)
 		case "else":
 			code += fmt.Sprintf(`} else { return %s`, eleCode)
 		case "elseif":
-			condition, err := ast_from_api.JsCode2Go(v.Condition, DataKey)
+			condition, err := ast_from_api.Js2Go(v.Condition, DataKey)
 			if err != nil {
 				panic(err)
 			}
@@ -271,8 +294,9 @@ func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]s
 	namedSlotCode = map[string]string{
 		e.SlotName: fmt.Sprintf(`func(props map[string]interface{}) string{
 	%s := extendMap(map[string]interface{}{"%s": props}, %s)
-	return %s
-}`, DataKey, e.PropsKey, DataKey, srcCode),
+_ = %s
+return %s
+}`, DataKey, e.PropsKey, DataKey, DataKey, srcCode),
 	}
 
 	// 插槽会将原来的子代码去掉, 并将代码放在namedSlot里.
@@ -322,7 +346,7 @@ func injectVal(src string) (to string) {
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
 
-		goCode, err := ast_from_api.JsCode2Go(key, DataKey)
+		goCode, err := ast_from_api.Js2Go(key, DataKey)
 		if err != nil {
 			panic(err)
 		}

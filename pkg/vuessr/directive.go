@@ -22,6 +22,8 @@ type GenCodeDirective interface {
 }
 
 type GenCodeDirectives map[string]GenCodeDirective
+// v-animate = {'a': 1}
+type Directives map[string]string
 
 func (d GenCodeDirectives) Exec(e *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{}
@@ -75,7 +77,7 @@ type VIfDirectiveElseIf struct {
 }
 
 func (e VIfDirective) Exec(el *VueElement, app *App, code string) (descCode string, namedSlotCode map[string]string) {
-	condition, err := ast_from_api.JsCode2Go(e.Condition, DataKey)
+	condition, err := ast_from_api.Js2Go(e.Condition, DataKey)
 	if err != nil {
 		panic(err)
 	}

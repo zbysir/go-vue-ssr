@@ -7,12 +7,12 @@ import (
 )
 
 type VueElement struct {
-	IsRoot    bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
-	TagName   string
-	Text      string
-	Attrs     map[string]string // 除去指令/props/style/class之外的属性
-	AttrsKeys []string          // 属性的key, 用来保证顺序
-	// Directives       GenCodeDirectives // genCode指令(如v-if, v-for), 在编译期间运行
+	IsRoot           bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
+	TagName          string
+	Text             string
+	Attrs            map[string]string // 除去指令/props/style/class之外的属性
+	AttrsKeys        []string          // 属性的key, 用来保证顺序
+	Directives       Directives        // 自定义指令, 运行时
 	ElseIfConditions []ElseIf          // 将与if指令匹配的elseif/else关联在一起
 	Class            []string          // 静态class
 	Style            map[string]string // 静态style
@@ -114,7 +114,6 @@ func (p Props) CanBeAttr() Props {
 	}
 	return a
 }
-
 
 type Element struct {
 	Text     string // 只是字
@@ -218,7 +217,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 	var ifVueEle *VueElement
 	for i, e := range es {
 		props := map[string]string{}
-		//ds := GenCodeDirectives{}
+		ds := Directives{}
 		var class []string
 		style := map[string]string{}
 		var styleKeys []string
@@ -308,6 +307,9 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 						Types:     "else",
 						Condition: strings.Trim(attr.Val, " "),
 					}
+				default:
+					// 自定义指令
+					ds[key] = strings.Trim(attr.Val, " ")
 				}
 			} else if attr.Key == "class" {
 				ss := strings.Split(attr.Val, " ")
@@ -361,17 +363,17 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			Attrs:            attrs,
 			AttrsKeys:        attrsKeys,
 			ElseIfConditions: []ElseIf{},
-			//Directives:       ds,
-			Class:     class,
-			Style:     style,
-			StyleKeys: styleKeys,
-			Props:     props,
-			Children:  ch,
-			VIf:       vIf,
-			VFor:      vFor,
-			VSlot:     vSlot,
-			VElse:     vElse != nil,
-			VElseIf:   vElseIf != nil,
+			Directives:       ds,
+			Class:            class,
+			Style:            style,
+			StyleKeys:        styleKeys,
+			Props:            props,
+			Children:         ch,
+			VIf:              vIf,
+			VFor:             vFor,
+			VSlot:            vSlot,
+			VElse:            vElse != nil,
+			VElseIf:          vElseIf != nil,
 		}
 
 		// 记录vif, 接下来的elseif将与这个节点关联

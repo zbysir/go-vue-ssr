@@ -30,7 +30,7 @@ func genAttrCode(e *VueElement) string {
 			classPropsCode := "nil"
 			if classProps != "" {
 				var err error
-				classPropsCode, err = ast_from_api.JsCode2Go(classProps, DataKey)
+				classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
 				if err != nil {
 					panic(err)
 				}
@@ -46,7 +46,7 @@ func genAttrCode(e *VueElement) string {
 			stylePropsCode := "nil"
 			if styleProps != "" {
 				var err error
-				stylePropsCode, err = ast_from_api.JsCode2Go(styleProps, DataKey)
+				stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
 				if err != nil {
 					panic(err)
 				}
@@ -58,7 +58,7 @@ func genAttrCode(e *VueElement) string {
 		// 其他attr
 		{
 			staticAttrCode := mapStringToGoCode(e.Attrs)
-			attrPropsCode := propsCode(e.Props.CanBeAttr())
+			attrPropsCode := mapJsCodeToCode(e.Props.CanBeAttr())
 
 			attrCode = fmt.Sprintf(`mixinAttr(options, %s, %s)`, staticAttrCode, attrPropsCode)
 		}
@@ -70,7 +70,7 @@ func genAttrCode(e *VueElement) string {
 			classPropsCode := "nil"
 			if classProps != "" {
 				var err error
-				classPropsCode, err = ast_from_api.JsCode2Go(classProps, DataKey)
+				classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
 				if err != nil {
 					panic(err)
 				}
@@ -91,7 +91,7 @@ func genAttrCode(e *VueElement) string {
 			stylePropsCode := "nil"
 			if styleProps != "" {
 				var err error
-				stylePropsCode, err = ast_from_api.JsCode2Go(styleProps, DataKey)
+				stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
 				if err != nil {
 					panic(err)
 				}
@@ -109,7 +109,7 @@ func genAttrCode(e *VueElement) string {
 		// attr
 		{
 			staticAttrCode := mapStringToGoCode(e.Attrs)
-			attrPropsCode := propsCode(e.Props.Omit("class", "style"))
+			attrPropsCode := mapJsCodeToCode(e.Props.Omit("class", "style"))
 
 			// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
 			if attrPropsCode != "nil" {
@@ -141,53 +141,6 @@ func genAttrCode(e *VueElement) string {
 		}
 		a += attrCode
 	}
-
-	//// 其他静态属性
-	//if len(e.Attrs) != 0 {
-	//	if a != "" {
-	//		a += `+" "+`
-	//	}
-	//
-	//	at := ""
-	//	for k, v := range e.Attrs {
-	//		at += fmt.Sprintf(`%s=%v `, k, v)
-	//	}
-	//
-	//	a += `"` + at + `"`
-	//}
-
-	// 除了class和style, 其他的props都应该渲染为attr
-	//if e.IsRoot {
-	//	// root还需要渲染传递下来的props和attr
-	//	for k, v := range e.Props {
-	//		if k != "class" && k != "style" {
-	//			if a != "" {
-	//				a += `+" "+`
-	//			}
-	//			vCode, err := ast_from_api.JsCode2Go(v, DataKey)
-	//			if err != nil {
-	//				panic(err)
-	//			}
-	//
-	//			a += fmt.Sprintf(`"+"%s="+%v+"`, k, vCode)
-	//		}
-	//	}
-	//
-	//} else {
-	//	for k, v := range e.Props {
-	//		if k != "class" && k != "style" {
-	//			if a != "" {
-	//				a += `+" "+`
-	//			}
-	//			vCode, err := ast_from_api.JsCode2Go(v, DataKey)
-	//			if err != nil {
-	//				panic(err)
-	//			}
-	//
-	//			a += fmt.Sprintf(`"+"%s="+%v+"`, k, vCode)
-	//		}
-	//	}
-	//}
 
 	if a == "" {
 		a = `""`

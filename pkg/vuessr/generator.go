@@ -62,7 +62,7 @@ func genNew(app *App, pkgName string) string {
 		"r.components = %s\n"+
 		"return r"+
 		"}",
-		pkgName, mapCodeToGoCode(m, "ComponentFunc"))
+		pkgName, mapGoCodeToCode(m, "ComponentFunc"))
 }
 
 // 生成并写入文件夹
@@ -127,11 +127,11 @@ func GenAllFile(src, desc string) (err error) {
 	}
 
 	// buildin代码
-	code = fmt.Sprintf("package %s\n", pkgName) + buildInCode
-	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"buildin.go", []byte(code), 0666)
-	if err != nil {
-		return
-	}
+	//code = fmt.Sprintf("package %s\n", pkgName) + buildInCode
+	//err = ioutil.WriteFile(desc+string(os.PathSeparator)+"buildin.go", []byte(code), 0666)
+	//if err != nil {
+	//	return
+	//}
 
 	return
 }
