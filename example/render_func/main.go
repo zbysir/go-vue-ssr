@@ -8,7 +8,9 @@ import (
 func main() {
 	err := http.ListenAndServe(":10000", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// run pkg/vuessr/generator_test.go first
-		html := vuetpl.XComponent_helloworld(&vuetpl.Options{
+
+		render := vuetpl.NewRender()
+		html := render.Component_helloworld(&vuetpl.Options{
 			Props: map[string]interface{}{
 				"name":   "bysir",
 				"sex":    "男",

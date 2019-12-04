@@ -131,8 +131,7 @@ func (o *OptionsGen) ToGoCode() string {
 
 // 生成代码中的key
 const (
-	DataKey  = "data" // 变量作用域的key, 相当于js的this.
-	PropsKey = "options.Props"
+	DataKey  = "this" // 变量作用域的key, 相当于js的this.
 	SlotKey  = "options.Slot"
 )
 
@@ -187,7 +186,7 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 			NamedSlotCode:   namedSlotCode,
 		}
 		optionsCode := options.ToGoCode()
-		eleCode = fmt.Sprintf("XComponent_%s(%s)", e.TagName, optionsCode)
+		eleCode = fmt.Sprintf("r.Component_%s(%s)", e.TagName, optionsCode)
 	} else if e.TagName == "template" {
 		// 使用子级
 		eleCode = defaultSlotCode

@@ -78,7 +78,7 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		for i, v := range t.Arguments {
 			args[i] = genGoCodeByNode(v, dataKey)
 		}
-		return fmt.Sprintf("%s(%s)", name, strings.Join(args,","))
+		return fmt.Sprintf(`interfaceToFunc(lookInterface(%s,"%s"))(%s)`, dataKey, name, strings.Join(args,","))
 	default:
 		panic(t)
 		//bs,_:=json.Marshal(t)

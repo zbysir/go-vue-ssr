@@ -1,12 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"github.com/bysir-zl/go-vue-ssr/internal/vuetpl"
 	"testing"
 )
 
 func TestX(t *testing.T) {
-	html := vuetpl.XComponent_helloworld(&vuetpl.Options{
+	r := vuetpl.NewRender()
+	r.Prototype = map[string]interface{}{"img": func(args ...interface{}) interface{} {
+		return fmt.Sprintf("%s?%d", args[0], 10000)
+	}}
+	html := r.Component_helloworld(&vuetpl.Options{
 		Props: map[string]interface{}{
 			"name":        "bysir",
 			"sex":         "男",
@@ -14,6 +19,7 @@ func TestX(t *testing.T) {
 			"list":        []interface{}{"1", map[string]interface{}{"a": 2}},
 			"isShow":      true,
 			"customClass": "customClass",
+			"imgUrl":      "https://s3.cn-north-1.amazonaws.com.cn/lcavatar/00b5aeb3-e45b-4aa1-a530-ff21c4d5835c_80x80.png",
 		},
 	})
 
@@ -21,9 +27,10 @@ func TestX(t *testing.T) {
 }
 
 func TestVIf(t *testing.T) {
-	html := vuetpl.XComponent_vif(&vuetpl.Options{
+	r := vuetpl.NewRender()
+	html := r.Component_vif(&vuetpl.Options{
 		Props: map[string]interface{}{
-			"name":  "bysir",
+			"name": "bysir",
 			//"name2": "b2",
 		},
 	})

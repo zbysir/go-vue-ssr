@@ -22,10 +22,10 @@ func genComponentRenderFunc(app *App, pkgName, name string, file string) string 
 	//code = strings.Replace(code, `"+"`, "", -1)
 
 	return fmt.Sprintf("package %s\n\n"+
-		"func XComponent_%s(options *Options)string{\n"+
-		"%s:= %s\n_ = %s\n"+
+		"func (r *Render)Component_%s(options *Options)string{\n"+
+		"%s:= extendMap(r.Prototype, options.Props)\n_ = %s\n"+ // 声明this
 		"return %s"+
-		"}", pkgName, name, DataKey, PropsKey, DataKey, code)
+		"}", pkgName, name, DataKey, DataKey, code)
 }
 
 func tuoFeng2SheXing(src []byte) (out []byte) {
@@ -46,19 +46,22 @@ func tuoFeng2SheXing(src []byte) (out []byte) {
 	return
 }
 
-func genRegister(app *App, pkgName string) string {
+func genNew(app *App, pkgName string) string {
 	m := map[string]string{}
 	for k := range app.Components {
-		m[k] = fmt.Sprintf(`XComponent_%s`, k)
+		m[k] = fmt.Sprintf(`r.Component_%s`, k)
 		k2 := string(tuoFeng2SheXing([]byte(k)))
 		if k != k2 {
-			m[k2] = fmt.Sprintf(`XComponent_%s`, k)
+			m[k2] = fmt.Sprintf(`r.Component_%s`, k)
 		}
 	}
 
 	return fmt.Sprintf("package %s\n\n"+
-		"var components = map[string]ComponentFunc{}\n"+
-		"func init(){components = %s}",
+		"func NewRender() *Render{" +
+		"r:=&Render{}\n"+
+		"r.components = %s\n"+
+		"return r"+
+		"}",
 		pkgName, mapCodeToGoCode(m, "ComponentFunc"))
 }
 
@@ -105,8 +108,8 @@ func GenAllFile(src, desc string) (err error) {
 	_, pkgName := filepath.Split(desc)
 
 	// 注册vue组件, 用于动态组件
-	code := genRegister(app, pkgName)
-	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"register.go", []byte(code), 0666)
+	code := genNew(app, pkgName)
+	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"new.go", []byte(code), 0666)
 	if err != nil {
 		return
 	}
@@ -164,8 +167,25 @@ import (
 	"strings"
 )
 
+type Render struct {
+	// 模拟原型链, 每个组件中都可以直接读取到这个对象中的值. 如果和组件上层传递的props冲突, 则上层传递的props优先.
+	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
+	Prototype map[string]interface{}
+	// 注册的动态组件
+	components map[string]ComponentFunc
+}
+
+type Function func(args ...interface{}) interface{}
+
+func emptyFunc(args ...interface{}) interface{} {
+	if len(args) != 0 {
+		return args[0]
+	}
+	return nil
+}
+
 // 内置组件
-func XComponent_slot(options *Options) string {
+func (r *Render) Component_slot(options *Options) string {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
@@ -181,12 +201,12 @@ func XComponent_slot(options *Options) string {
 	return injectSlotFunc(props)
 }
 
-func XComponent_component(options *Options) string {
+func (r *Render) Component_component(options *Options) string {
 	is, ok := options.Props["is"].(string)
 	if !ok {
 		return ""
 	}
-	if c, ok := components[is]; ok {
+	if c, ok := r.components[is]; ok {
 		return c(options)
 	}
 
@@ -200,7 +220,7 @@ type Options struct {
 	Class     []string                 // 静态class, 只会作用在root节点
 	Style     map[string]string        // 静态style, 只会作用在root节点
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]namedSlotFunc // 插槽代码, 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Slot      map[string]namedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	P         *Options                 // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
 }
 
@@ -382,6 +402,8 @@ func genStyle(style map[string]string) string {
 		v := style[k]
 		st += fmt.Sprintf("%s: %s; ", k, v)
 	}
+
+	st = strings.Trim(st, " ")
 	return st
 }
 
@@ -393,6 +415,8 @@ func genAttr(attr map[string]string) string {
 		v := attr[k]
 		st += fmt.Sprintf("%s=\"%s\" ", k, v)
 	}
+
+	st = strings.Trim(st, " ")
 	return st
 }
 
@@ -435,19 +459,24 @@ func getClassFromProps(classProps interface{}) []string {
 func lookInterface(data interface{}, key string) (desc interface{}) {
 	m, ok := shouldLookInterface(data, key)
 	if !ok {
-		return ""
+		return nil
 	}
 
 	return m
 }
 
 // 扩展map, 实现作用域
-func extendMap(src map[string]interface{}, ext map[string]interface{}) (desc map[string]interface{}) {
-	//desc = make(map[string]interface{}, len(src))
-	for i, v := range ext {
-		src[i] = v
+func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc map[string]interface{}) {
+	desc = make(map[string]interface{}, len(src))
+	for k, v := range src {
+		desc[k] = v
 	}
-	return src
+	for _, m := range ext {
+		for k, v := range m {
+			desc[k] = v
+		}
+	}
+	return desc
 }
 
 func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
@@ -483,9 +512,26 @@ func interfaceToBool(s interface{}) (d bool) {
 		return a != "" && a != "false" && a != "0"
 	default:
 		return true
-}
+	}
 
 	return
+}
+
+// 用于{{func(a)}}语法
+func interfaceToFunc(s interface{}) (d Function) {
+	if s == nil {
+		return emptyFunc
+	}
+
+	switch a := s.(type) {
+	case func(args ...interface{}) interface{}:
+		return a
+	case Function:
+		return a
+	default:
+		panic(a)
+		return emptyFunc
+	}
 }
 
 func interface2Slice(s interface{}) (d []interface{}) {

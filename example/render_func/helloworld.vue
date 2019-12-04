@@ -31,7 +31,7 @@
 
     <component v-bind:is="'class'"></component>
 
-    <xattr type="input" id="attr" v-bind:src="name"></xattr>
+    <xattr type="input" id="attr" v-bind:src="name" :imgUrl="imgUrl"></xattr>
   </div>
 </template>
 
