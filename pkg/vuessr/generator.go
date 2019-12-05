@@ -127,11 +127,11 @@ func GenAllFile(src, desc string) (err error) {
 	}
 
 	// buildin代码
-	//code = fmt.Sprintf("package %s\n", pkgName) + buildInCode
-	//err = ioutil.WriteFile(desc+string(os.PathSeparator)+"buildin.go", []byte(code), 0666)
-	//if err != nil {
-	//	return
-	//}
+	code = fmt.Sprintf("package %s\n", pkgName) + buildInCode
+	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"buildin.go", []byte(code), 0666)
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -160,6 +160,7 @@ func walkDir(dirPth string, suffix string) (files []string, err error) {
 }
 
 const buildInCode = `
+
 import (
 	"encoding/json"
 	"fmt"
@@ -173,15 +174,38 @@ type Render struct {
 	Prototype map[string]interface{}
 	// 注册的动态组件
 	components map[string]ComponentFunc
+	// 指令
+	directives map[string]DirectivesFunc
+	// 用来存储渲染中生成的数据
+	// 如在指令中向上下文Set一个数据, 可以看v-save指令
+	Ctx GetterSetter
 }
 
+type GetterSetter interface {
+	Get(key string) interface{}
+	GetAll() map[string]interface{}
+	Set(key string, val interface{})
+}
+
+// for {{func(a)}}
 type Function func(args ...interface{}) interface{}
+
+type DirectivesFunc func(val interface{}, r *Render, options *Options)
 
 func emptyFunc(args ...interface{}) interface{} {
 	if len(args) != 0 {
 		return args[0]
 	}
 	return nil
+}
+
+// 注册指令
+func (r *Render) Directive(name string, f DirectivesFunc) {
+	if r.directives == nil {
+		r.directives = map[string]DirectivesFunc{}
+	}
+
+	r.directives[name] = f
 }
 
 // 内置组件
@@ -215,29 +239,55 @@ func (r *Render) Component_component(options *Options) string {
 
 // 动态tag
 // 何为动态tag:
-// - 每个组件的root层tag(attr收到上传传递的props影响)
-// - 有自己定义指令(自定义指令的实现只能由动态tag实现)
-func (r *Render) Tag(tagName string, options *Options) string {
-	// todo directive
-	//options.Class = append(options.Class,interfaceToStr(lookInterface(options.Directives["v-animate"],"xclass")))
+// - 每个组件的root层tag(attr受到上层传递的props影响)
+// - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
+func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+	// exec directive
+	if len(options.Directives) != 0 {
+		for _, d := range options.Directives {
+			if f, ok := r.directives[d.Name]; ok {
+				f(d.Value, r, options)
+			}
+		}
+	}
 
-	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, mixinClass(options,nil,nil), options.Slot["default"](nil), tagName)
+	var p *Options
+	if isRoot {
+		p = options.P
+	}
+
+	// attr
+	attr := mixinClass(p, options.Class, options.PropsClass) +
+		mixinStyle(p, options.Style, options.PropsStyle) +
+		mixinAttr(p, options.Attrs, options.Props.CanBeAttr())
+
+	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slot["default"](nil), tagName)
 	return eleCode
 }
 
 // 渲染组件需要的结构
 // tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
-	Props     map[string]interface{}   // 上级传递的 数据(包含了class和style)
-	Attrs     map[string]string        // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
-	Class     []string                 // 静态class, 只会作用在root节点
-	Style     map[string]string        // 静态style, 只会作用在root节点
+	Props      Props       // 本节点的数据(不包含class和style)
+	PropsClass interface{} // :class
+	PropsStyle interface{} // :style
+	// PropsAttr  map[string]interface{}   // 可以被生成attr的Props, 由Props.CanBeAttr而来
+	Attrs     map[string]string        // 本节点静态的attrs (除去class和style)
+	Class     []string                 // 本节点静态class
+	Style     map[string]string        // 本节点静态style
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
 	Slot      map[string]namedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
-	P         *Options                 // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
-	Directives map[string]interface{}
+	// 父级options
+	// - 在渲染插槽会用到. (根据name取到父级的slot)
+	// - 读取上层传递的PropsClass, 作用在root tag
+	P          *Options
+	Directives []directive // 指令值
 }
 
+type directive struct {
+	Name  string
+	Value interface{}
+}
 
 type Props map[string]interface{}
 
@@ -273,6 +323,7 @@ type namedSlotFunc func(props map[string]interface{}) string
 // todo) 如果style/class没有冲突, 则还可以优化
 // tip: 纯静态的class应该在编译时期就生成字符串, 而不应调用这个
 // classProps: 支持 obj, array, string
+// options: 上层组件的options
 func mixinClass(options *Options, staticClass []string, classProps interface{}) (str string) {
 	var class []string
 	// 静态
@@ -290,9 +341,8 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 	if options != nil {
 		// 上层传递的props
 		if options.Props != nil {
-			prop, ok := options.Props["class"]
-			if ok {
-				for _, c := range getClassFromProps(prop) {
+			if options.PropsClass != nil {
+				for _, c := range getClassFromProps(options.PropsClass) {
 					class = append(class, c)
 				}
 			}
@@ -333,9 +383,8 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps inte
 	if options != nil {
 		// 上层传递的props
 		if options.Props != nil {
-			prop, ok := options.Props["style"]
-			if ok {
-				ps := getStyleFromProps(prop)
+			if options.PropsStyle != nil {
+				ps := getStyleFromProps(options.PropsStyle)
 				for k, v := range ps {
 					style[k] = v
 				}
@@ -480,6 +529,8 @@ func lookInterface(data interface{}, key string) (desc interface{}) {
 	return m
 }
 
+var LookInterface = lookInterface
+
 // 扩展map, 实现作用域
 func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc map[string]interface{}) {
 	desc = make(map[string]interface{}, len(src))
@@ -512,6 +563,8 @@ func interfaceToStr(s interface{}) (d string) {
 		return string(bs)
 	}
 }
+
+var InterfaceToStr = interfaceToStr
 
 // 字符串false,0 会被认定为false
 func interfaceToBool(s interface{}) (d bool) {
