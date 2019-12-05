@@ -6,8 +6,35 @@ import (
 	"strings"
 )
 
-// 生成attr, 包括class style和其他
-// isRoot: 当时root节点的时候才会从options里读取上一层传递而来的数据 用来组装
+func getPropsClass(props Props) string {
+	item := props.Get("class")
+	if item == "" {
+		return "nil"
+	}
+
+	code, err := ast_from_api.Js2Go(item, DataKey)
+	if err != nil {
+		panic(err)
+	}
+
+	return code
+}
+
+func getPropsStyle(props Props) string {
+	item := props.Get("style")
+	if item == "" {
+		return "nil"
+	}
+
+	code, err := ast_from_api.Js2Go(item, DataKey)
+	if err != nil {
+		panic(err)
+	}
+
+	return code
+}
+
+// 生成!动态节点的!attr, 包括class style和其他
 func genAttrCode(e *VueElement) string {
 	var a = ""
 
@@ -21,104 +48,60 @@ func genAttrCode(e *VueElement) string {
 	styleProps := e.Props.Get("style")
 
 	// 额外处理class/style
-	// 如果是root组件, 则始终应该使用动态class/style(因为上级传递的class/style不是固定的), 应该合并上级和本级的class/style
-	if e.IsRoot {
-		// class
-		{
-			staticClassCode := sliceStringToGoCode(e.Class)
 
-			classPropsCode := "nil"
-			if classProps != "" {
-				var err error
-				classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
-				if err != nil {
-					panic(err)
-				}
-			}
+	// class
+	{
+		staticClassCode := sliceStringToGoCode(e.Class)
 
-			classCode = fmt.Sprintf(`mixinClass(options, %s, %s)`, staticClassCode, classPropsCode)
-		}
-
-		// style
-		{
-			staticStyleCode := mapStringToGoCode(e.Style)
-
-			stylePropsCode := "nil"
-			if styleProps != "" {
-				var err error
-				stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
-				if err != nil {
-					panic(err)
-				}
-			}
-
-			styleCode = fmt.Sprintf(`mixinStyle(options, %s, %s)`, staticStyleCode, stylePropsCode)
-		}
-
-		// 其他attr
-		{
-			staticAttrCode := mapStringToGoCode(e.Attrs)
-			attrPropsCode := mapJsCodeToCode(e.Props.CanBeAttr())
-
-			attrCode = fmt.Sprintf(`mixinAttr(options, %s, %s)`, staticAttrCode, attrPropsCode)
-		}
-	} else {
-		// class
-		{
-			staticClassCode := sliceStringToGoCode(e.Class)
-
-			classPropsCode := "nil"
-			if classProps != "" {
-				var err error
-				classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
-				if err != nil {
-					panic(err)
-				}
-			}
-			if classPropsCode != "nil" {
-				classCode = fmt.Sprintf(`mixinClass(nil, %s, %s)`, staticClassCode, classPropsCode)
-			} else if staticClassCode == "nil" {
-				classCode = ``
-			} else {
-				classCode = fmt.Sprintf(`" class=\"%s\""`, strings.Join(e.Class, " "))
+		classPropsCode := "nil"
+		if classProps != "" {
+			var err error
+			classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
+			if err != nil {
+				panic(err)
 			}
 		}
+		if classPropsCode != "nil" {
+			classCode = fmt.Sprintf(`mixinClass(nil, %s, %s)`, staticClassCode, classPropsCode)
+		} else if staticClassCode == "nil" {
+			classCode = ``
+		} else {
+			classCode = fmt.Sprintf(`" class=\"%s\""`, strings.Join(e.Class, " "))
+		}
+	}
+	// style
+	{
+		staticStyleCode := mapStringToGoCode(e.Style)
 
-		// style
-		{
-			staticStyleCode := mapStringToGoCode(e.Style)
-
-			stylePropsCode := "nil"
-			if styleProps != "" {
-				var err error
-				stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
-				if err != nil {
-					panic(err)
-				}
-			}
-			if stylePropsCode != "nil" {
-				// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
-				styleCode = fmt.Sprintf(`mixinStyle(nil, %s, %s)`, staticStyleCode, stylePropsCode)
-			} else if staticStyleCode == "nil" {
-				styleCode = ``
-			} else {
-				styleCode = fmt.Sprintf(`" style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
+		stylePropsCode := "nil"
+		if styleProps != "" {
+			var err error
+			stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
+			if err != nil {
+				panic(err)
 			}
 		}
-
-		// attr
-		{
-			staticAttrCode := mapStringToGoCode(e.Attrs)
-			attrPropsCode := mapJsCodeToCode(e.Props.Omit("class", "style"))
-
+		if stylePropsCode != "nil" {
 			// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
-			if attrPropsCode != "nil" {
-				attrCode = fmt.Sprintf(`mixinAttr(nil, %s, %s)`, staticAttrCode, attrPropsCode)
-			} else if staticAttrCode == "nil" {
-				attrCode = ``
-			} else {
-				attrCode = fmt.Sprintf(`" %s"`, genAttr(e.Attrs, e.AttrsKeys))
-			}
+			styleCode = fmt.Sprintf(`mixinStyle(nil, %s, %s)`, staticStyleCode, stylePropsCode)
+		} else if staticStyleCode == "nil" {
+			styleCode = ``
+		} else {
+			styleCode = fmt.Sprintf(`" style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
+		}
+	}
+	// attr
+	{
+		staticAttrCode := mapStringToGoCode(e.Attrs)
+		attrPropsCode := mapJsCodeToCode(e.Props.Omit("class", "style"))
+
+		// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
+		if attrPropsCode != "nil" {
+			attrCode = fmt.Sprintf(`mixinAttr(nil, %s, %s)`, staticAttrCode, attrPropsCode)
+		} else if staticAttrCode == "nil" {
+			attrCode = ``
+		} else {
+			attrCode = fmt.Sprintf(`" %s"`, genAttr(e.Attrs, e.AttrsKeys))
 		}
 	}
 

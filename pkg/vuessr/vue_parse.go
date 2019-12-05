@@ -12,7 +12,7 @@ type VueElement struct {
 	Text             string
 	Attrs            map[string]string // 除去指令/props/style/class之外的属性
 	AttrsKeys        []string          // 属性的key, 用来保证顺序
-	Directives       Directives        // 自定义指令, 运行时
+	Directives       []Directive       // 自定义指令, 运行时
 	ElseIfConditions []ElseIf          // 将与if指令匹配的elseif/else关联在一起
 	Class            []string          // 静态class
 	Style            map[string]string // 静态style
@@ -24,6 +24,11 @@ type VueElement struct {
 	VSlot            *VSlot
 	VElse            bool // 如果是VElse节点则不会生成代码(而是在vif里生成代码)
 	VElseIf          bool
+}
+
+type Directive struct {
+	Name  string // v-animate
+	Value string // {'a': 1}
 }
 
 type ElseIf struct {
@@ -217,7 +222,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 	var ifVueEle *VueElement
 	for i, e := range es {
 		props := map[string]string{}
-		ds := Directives{}
+		var ds []Directive
 		var class []string
 		style := map[string]string{}
 		var styleKeys []string
@@ -309,7 +314,10 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 					}
 				default:
 					// 自定义指令
-					ds[key] = strings.Trim(attr.Val, " ")
+					ds = append(ds, Directive{
+						Name:  key,
+						Value: strings.Trim(attr.Val, " "),
+					})
 				}
 			} else if attr.Key == "class" {
 				ss := strings.Split(attr.Val, " ")
@@ -341,8 +349,6 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			}
 		}
 
-		ch := p.parseList(e.Children)
-
 		isRoot := false
 		if !p.hasRoot {
 			// 最外层的template下的节点是根节点
@@ -352,6 +358,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			}
 		}
 
+		ch := p.parseList(e.Children)
 		for _, v := range ch {
 			v.IsRoot = isRoot
 		}

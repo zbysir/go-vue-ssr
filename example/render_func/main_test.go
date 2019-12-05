@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bysir-zl/go-vue-ssr/internal/vuetpl"
 	"testing"
@@ -38,12 +39,67 @@ func TestVIf(t *testing.T) {
 	t.Log(html)
 }
 
+type GetSet map[string]interface{}
+
+func (g GetSet) Get(key string) interface{} {
+	return g[key]
+}
+
+func (g GetSet) Set(key string, val interface{}) {
+	g[key] = val
+}
+
+func (g GetSet) GetAll() map[string]interface{} {
+	return g
+}
+
 func TestVDirective(t *testing.T) {
 	r := vuetpl.NewRender()
+	r.Ctx = GetSet{}
+
+	r.Directive("v-animate", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
+		// add class
+		c := vuetpl.LookInterface(value, "xclass")
+		if c != nil {
+			options.Attrs = map[string]string{"data": "2"}
+			options.Class = append(options.Class, vuetpl.InterfaceToStr(c))
+		}
+	})
+	r.Directive("v-set", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
+		r.Ctx.Set(vuetpl.InterfaceToStr(vuetpl.LookInterface(value, "key")), vuetpl.LookInterface(value, "value"))
+	})
+	r.Directive("v-get", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
+		options.Slot["default"] = func(props map[string]interface{}) string {
+			bs, _ := json.Marshal(r.Ctx.GetAll())
+			return string(bs)
+		}
+	})
+
 	html := r.Component_directive(&vuetpl.Options{
 		Props: map[string]interface{}{
-			"name": "bysir",
+			"name":   "bysir",
 			"xclass": "v-animate",
+			"speed":  "5s",
+			"id":     "_123",
+			"show":   1,
+		},
+	})
+
+	t.Log(html)
+}
+
+func TestAttr(t *testing.T) {
+	r := vuetpl.NewRender()
+	r.Prototype = map[string]interface{}{
+		"img": func(args ...interface{}) interface{} {
+			return fmt.Sprintf("%s?100", args[0], )
+		},
+	}
+
+	html := r.Component_xattr(&vuetpl.Options{
+		Props: map[string]interface{}{
+			"imgUrl":      "bysir.jpg",
+			"customClass": "customClass",
 		},
 	})
 

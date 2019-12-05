@@ -226,6 +226,7 @@ func (r *Render) Tag(tagName string, options *Options) string {
 }
 
 // 渲染组件需要的结构
+// tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
 	Props     map[string]interface{}   // 上级传递的 数据(包含了class和style)
 	Attrs     map[string]string        // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点

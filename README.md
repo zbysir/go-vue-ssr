@@ -50,6 +50,7 @@ html = vuetpl.XComponent_helloworld()
   - `function call`
   - `.length`
 - function call: eg. {{calcHeight(srcHeight)}}
+- directive
 
 **not support**
 - v-on
@@ -61,3 +62,26 @@ html = vuetpl.XComponent_helloworld()
 
 **other**
 - prototype
+
+## 编译原理
+### 动态节点 / 静态节点 / 半动态节点
+**静态节点**
+静态节点在编译时就会生成静态的字符串里.
+
+如
+```
+<span class="m"></span>
+```
+在最终生成的代码中是这样:
+```
+"<span class=\"m\"></span>"
+```
+
+**动态节点**
+动态节点的生成发生在运行时.
+
+满足以下条件都是动态节点:
+- 拥有`指令`: 由于指令中可以修改节点的属性, 只能在运行时动态生成html
+- `组件的root节点`
+
+拥有`指令` 或者 是`组件的root节点` 则统一为动态节点

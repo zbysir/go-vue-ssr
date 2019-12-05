@@ -22,7 +22,7 @@ type OptionsGen struct {
 	Slot            map[string]string // 插槽节点
 	DefaultSlotCode string            // 子节点code, 用于默认的插槽
 	NamedSlotCode   map[string]string // 具名插槽
-	Directives      Directives        // 指令代码
+	Directives      []Directive       // 指令代码
 }
 
 func sliceStringToGoCode(m []string) string {
@@ -91,11 +91,27 @@ func mapJsCodeToCode(m map[string]string) string {
 
 func (o *OptionsGen) ToGoCode() string {
 	c := "&Options{"
+
 	if len(o.Props) != 0 {
-		props := "Props: "
-		props += mapJsCodeToCode(o.Props)
-		c += props + ",\n"
+		// class
+		cCode := getPropsClass(o.Props)
+		if cCode != "nil" {
+			delete(o.Props, "class")
+			c += fmt.Sprintf("PropsClass: %s, \n", cCode)
+		}
+		// style
+		cStyle := getPropsStyle(o.Props)
+		if cStyle != "nil" {
+			delete(o.Props, "style")
+			c += fmt.Sprintf("PropsStyle: %s, \n", cStyle)
+		}
+
+		// 除了class/style的props
+		if len(o.Props) != 0 {
+			c += fmt.Sprintf("Props: %s, \n", mapJsCodeToCode(o.Props))
+		}
 	}
+
 	if len(o.Attrs) != 0 {
 		c += fmt.Sprintf("Attrs: %s,\n", mapStringToGoCode(o.Attrs))
 	}
@@ -127,9 +143,23 @@ func (o *OptionsGen) ToGoCode() string {
 	c += fmt.Sprintf("P: options,\n")
 
 	// directive
-	if len(o.Directives)!=0{
-		directive := mapJsCodeToCode(o.Directives)
-		c += fmt.Sprintf("Directives: %s,\n", directive)
+	if len(o.Directives) != 0 {
+		// 数组
+		dir := "[]directive{\n"
+		for _, v := range o.Directives {
+			valueCode := "nil"
+			if v.Value != "" {
+				var err error
+				valueCode, err = ast_from_api.Js2Go(v.Value, DataKey)
+				if err != nil {
+					panic(err)
+				}
+			}
+			dir += fmt.Sprintf("{Name: \"%s\", Value: %s},\n", v.Name, valueCode)
+		}
+		dir += "}"
+
+		c += fmt.Sprintf("Directives: %s,\n", dir)
 	}
 
 	c += "}"
@@ -191,6 +221,7 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 			Style:           e.Style,
 			DefaultSlotCode: defaultSlotCode,
 			NamedSlotCode:   namedSlotCode,
+			Directives:      e.Directives,
 		}
 		optionsCode := options.ToGoCode()
 		eleCode = fmt.Sprintf("r.Component_%s(%s)", e.TagName, optionsCode)
@@ -205,27 +236,35 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 		eleCode = fmt.Sprintf(`"%s"`, text)
 	} else {
 		// 基础html标签
-		// attr: 如果是root元素, 则还需要处理上层传递而来的style/class
-		attrs := genAttrCode(e)
-		attrs = injectVal(attrs)
-		// 内联元素, slot应该放在标签里
 
-		options := OptionsGen{
-			Props:           e.Props,
-			Attrs:           e.Attrs,
-			Class:           e.Class,
-			Style:           e.Style,
-			StyleKeys:       e.StyleKeys,
-			Slot:            nil,
-			DefaultSlotCode: defaultSlotCode,
-			NamedSlotCode:   namedSlotCode,
-			Directives:      e.Directives,
+		// 判断节点是否是动态节点, 动态则使用r.Tag渲染节点, 否则使用字符串拼接
+		// 动态节点
+		// - 自定义指令: 在指令中会修改任何一个属性(class/style/attr...), 所以是动态的
+		// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
+
+		// 动态节点
+		if e.IsRoot || len(e.Directives) != 0 {
+			options := OptionsGen{
+				Props:           e.Props,
+				Attrs:           e.Attrs,
+				Class:           e.Class,
+				Style:           e.Style,
+				StyleKeys:       e.StyleKeys,
+				Slot:            nil,
+				DefaultSlotCode: defaultSlotCode,
+				NamedSlotCode:   namedSlotCode,
+				Directives:      e.Directives,
+			}
+
+			optionsCode := options.ToGoCode()
+
+			eleCode = fmt.Sprintf(`r.Tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
+		} else {
+			// 静态节点
+			attrs := genAttrCode(e)
+			// 内联元素, slot应该放在标签里
+			eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
 		}
-		optionsCode := options.ToGoCode()
-
-		// todo 判断动态节点与静态节点
-		//eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
-		eleCode = fmt.Sprintf(`r.Tag("%s", %s)`, e.TagName, optionsCode)
 	}
 
 	// 优先级 vSlot > vIf > vFor, 所以先处理VFor
