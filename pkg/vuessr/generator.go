@@ -57,7 +57,7 @@ func genNew(app *App, pkgName string) string {
 	}
 
 	return fmt.Sprintf("package %s\n\n"+
-		"func NewRender() *Render{" +
+		"func NewRender() *Render{"+
 		"r:=&Render{}\n"+
 		"r.components = %s\n"+
 		"return r"+
@@ -213,6 +213,18 @@ func (r *Render) Component_component(options *Options) string {
 	return fmt.Sprintf("not register com: %s", is)
 }
 
+// 动态tag
+// 何为动态tag:
+// - 每个组件的root层tag(attr收到上传传递的props影响)
+// - 有自己定义指令(自定义指令的实现只能由动态tag实现)
+func (r *Render) Tag(tagName string, options *Options) string {
+	// todo directive
+	//options.Class = append(options.Class,interfaceToStr(lookInterface(options.Directives["v-animate"],"xclass")))
+
+	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, mixinClass(options,nil,nil), options.Slot["default"](nil), tagName)
+	return eleCode
+}
+
 // 渲染组件需要的结构
 type Options struct {
 	Props     map[string]interface{}   // 上级传递的 数据(包含了class和style)
@@ -222,7 +234,9 @@ type Options struct {
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
 	Slot      map[string]namedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	P         *Options                 // 父级options, 在渲染插槽会用到. (根据name取到父级的slot)
+	Directives map[string]interface{}
 }
+
 
 type Props map[string]interface{}
 
