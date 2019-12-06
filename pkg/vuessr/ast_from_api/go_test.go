@@ -3,7 +3,7 @@ package ast_from_api
 import "testing"
 
 func TestGenGoCode(t *testing.T) {
-	node, err := GetAST(`(a[b])`)
+	node, err := GetAST(`(a?b:c)`)
 	if err != nil {
 		t.Fatal(err)
 	}

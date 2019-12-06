@@ -127,19 +127,27 @@ type ArrayExpression struct {
 	Elements []Node `json:"elements"`
 }
 
+// a?b:c
+type ConditionalExpression struct {
+	Test       Node `json:"test"`       // a
+	Consequent Node `json:"consequent"` // b
+	Alternate  Node `json:"alternate"`  // c
+}
+
 var nodeMap = map[string]interface{}{
-	"Program":             Program{},
-	"ExpressionStatement": ExpressionStatement{},
-	"BinaryExpression":    BinaryExpression{},
-	"LogicalExpression":   LogicalExpression{},
-	"Identifier":          Identifier{},
-	"UnaryExpression":     UnaryExpression{},
-	"Literal":             Literal{},
-	"ObjectExpression":    ObjectExpression{},
-	"Property":            Property{},
-	"MemberExpression":    MemberExpression{},
-	"CallExpression":      CallExpression{},
-	"ArrayExpression":     ArrayExpression{},
+	"Program":               Program{},
+	"ExpressionStatement":   ExpressionStatement{},
+	"BinaryExpression":      BinaryExpression{},
+	"LogicalExpression":     LogicalExpression{},
+	"Identifier":            Identifier{},
+	"UnaryExpression":       UnaryExpression{},
+	"Literal":               Literal{},
+	"ObjectExpression":      ObjectExpression{},
+	"Property":              Property{},
+	"MemberExpression":      MemberExpression{},
+	"CallExpression":        CallExpression{},
+	"ArrayExpression":       ArrayExpression{},
+	"ConditionalExpression": ConditionalExpression{},
 }
 
 func (n Node) Assert() interface{} {

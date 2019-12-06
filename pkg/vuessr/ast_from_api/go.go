@@ -94,6 +94,12 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 			args[i] = genGoCodeByNode(v, dataKey)
 		}
 		return fmt.Sprintf(`[]interface{}{%s}`, strings.Join(args, ","))
+	case ConditionalExpression:
+		consequent := genGoCodeByNode(t.Consequent, dataKey)
+		alternate := genGoCodeByNode(t.Alternate, dataKey)
+		test := genGoCodeByNode(t.Test, dataKey)
+
+		return fmt.Sprintf(`func() interface{} {if interfaceToBool(%s){return %s};return %s}()`, test, consequent, alternate)
 	default:
 		panic(t)
 		//bs,_:=json.Marshal(t)
