@@ -57,18 +57,20 @@ func TestVDirective(t *testing.T) {
 	r := vuetpl.NewRender()
 	r.Ctx = GetSet{}
 
-	r.Directive("v-animate", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
+	r.Directive("v-animate", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
 		// add class
-		c := vuetpl.LookInterface(value, "xclass")
+		c := vuetpl.LookInterface(binding.Value, "xclass")
 		if c != nil {
 			options.Attrs = map[string]string{"data": "2"}
 			options.Class = append(options.Class, vuetpl.InterfaceToStr(c))
 		}
 	})
-	r.Directive("v-set", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
-		r.Ctx.Set(vuetpl.InterfaceToStr(vuetpl.LookInterface(value, "key")), vuetpl.LookInterface(value, "value"))
+	r.Directive("v-set", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
+		r.Ctx.Set(
+			binding.Arg,
+			vuetpl.LookInterface(binding.Value, "value"))
 	})
-	r.Directive("v-get", func(value interface{}, r *vuetpl.Render, options *vuetpl.Options) {
+	r.Directive("v-get", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
 		options.Slot["default"] = func(props map[string]interface{}) string {
 			bs, _ := json.Marshal(r.Ctx.GetAll())
 			return string(bs)

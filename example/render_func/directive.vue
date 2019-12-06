@@ -9,7 +9,7 @@
       !show
     </template>
 
-    <p v-set='{key: "comp_"+id, value: {"swiper": {"speed": speed}}}'></p>
+    <p v-set:swiper='{id: id, value: {"swiper": {"speed": speed}}}'></p>
 
     <p v-get></p>
   </div>
