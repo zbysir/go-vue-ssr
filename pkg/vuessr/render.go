@@ -155,7 +155,7 @@ func (o *OptionsGen) ToGoCode() string {
 					panic(err)
 				}
 			}
-			dir += fmt.Sprintf("{Name: \"%s\", Value: %s},\n", v.Name, valueCode)
+			dir += fmt.Sprintf("{Name: \"%s\", Value: %s, Arg: \"%s\"},\n", v.Name, valueCode, v.Arg)
 		}
 		dir += "}"
 

@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestX(t *testing.T) {
+func TestHelloworld(t *testing.T) {
 	r := vuetpl.NewRender()
 	r.Prototype = map[string]interface{}{"img": func(args ...interface{}) interface{} {
 		return fmt.Sprintf("%s?%d", args[0], 10000)

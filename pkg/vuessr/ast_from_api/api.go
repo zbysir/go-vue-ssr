@@ -3,6 +3,7 @@ package ast_from_api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/obj"
 	"reflect"
@@ -24,7 +25,7 @@ type Identifier struct {
 }
 
 type LogicalExpression struct {
-	Operator string `json:"operator"` // && ||
+	Operator string `json:"operator"` // && || === ==
 	Left     Node   `json:"left"`
 	Right    Node   `json:"right"`
 }
@@ -62,23 +63,25 @@ type Property struct {
 type MemberExpression struct {
 	Object   Node `json:"object"`
 	Property Node `json:"property"`
+	Computed bool // 键是否变量
 }
 
 func (p Property) GetKey() string {
+	key := ""
 	switch t := p.Key.Assert().(type) {
 	case Identifier:
-		return t.Name
+		key = t.Name
 	case Literal:
-		return t.Value.(string)
+		key = t.Value.(string)
 	default:
 		panic(t)
 	}
 
-	return ""
+	return key
 }
 
 // 获取a.b.c.d
-func (p MemberExpression) GetKey() string {
+func (p MemberExpression) GetKey(computed bool) string {
 	currKey := ""
 	switch t := p.Property.Assert().(type) {
 	case Identifier:
@@ -89,10 +92,14 @@ func (p MemberExpression) GetKey() string {
 		panic(t)
 	}
 
+	if computed {
+		currKey = fmt.Sprintf(`"+interfaceToStr(lookInterface(this, "%s"))+"`, currKey)
+	}
+
 	parentKey := ""
 	switch t := p.Object.Assert().(type) {
 	case MemberExpression:
-		parentKey += t.GetKey() + "."
+		parentKey += t.GetKey(t.Computed) + "."
 	case Identifier:
 		parentKey += t.Name + "."
 	case Literal:
@@ -116,6 +123,10 @@ func (c CallExpression) GetFuncName() string {
 	return ""
 }
 
+type ArrayExpression struct {
+	Elements []Node `json:"elements"`
+}
+
 var nodeMap = map[string]interface{}{
 	"Program":             Program{},
 	"ExpressionStatement": ExpressionStatement{},
@@ -128,11 +139,12 @@ var nodeMap = map[string]interface{}{
 	"Property":            Property{},
 	"MemberExpression":    MemberExpression{},
 	"CallExpression":      CallExpression{},
+	"ArrayExpression":     ArrayExpression{},
 }
 
 func (n Node) Assert() interface{} {
-	typ,ok := n["type"].(string)
-	if !ok{
+	typ, ok := n["type"].(string)
+	if !ok {
 		return nil
 	}
 	entity, ok := nodeMap[typ]

@@ -29,6 +29,7 @@ type VueElement struct {
 type Directive struct {
 	Name  string // v-animate
 	Value string // {'a': 1}
+	Arg   string // v-set:arg
 }
 
 type ElseIf struct {
@@ -253,7 +254,9 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 				// 指令
 				// v-if=""
 				// v-slot:name=""
-				// v-show=""
+				// v-else-if=""
+				// v-else
+				// v-html
 				switch {
 				case key == "v-for":
 					val := attr.Val
@@ -286,12 +289,6 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 						ElseIf:    nil,
 					}
 				case nameSpace == "v-slot":
-					oriKey := attr.Key
-					key := oriKey
-					ss := strings.Split(oriKey, ":")
-					if len(ss) == 2 {
-						key = ss[1]
-					}
 					slotName := key
 					propsKey := attr.Val
 					// 不应该为空, 否则可能会导致生成的go代码有误
@@ -314,9 +311,18 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 					}
 				default:
 					// 自定义指令
+					var name string
+					var arg string
+					if nameSpace != "-" {
+						name = nameSpace
+						arg = key
+					} else {
+						name = key
+					}
 					ds = append(ds, Directive{
-						Name:  key,
+						Name:  name,
 						Value: strings.Trim(attr.Val, " "),
+						Arg:   arg,
 					})
 				}
 			} else if attr.Key == "class" {

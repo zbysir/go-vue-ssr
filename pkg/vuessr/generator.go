@@ -513,6 +513,13 @@ func getClassFromProps(classProps interface{}) []string {
 				c = append(c, k)
 			}
 		}
+		return c
+	case []interface{}:
+		var c []string
+		for _, v := range t {
+			cc := getClassFromProps(v)
+			c = append(c, cc...)
+		}
 
 		return c
 	}

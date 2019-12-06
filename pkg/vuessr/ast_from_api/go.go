@@ -36,7 +36,7 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	case Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
 	case MemberExpression:
-		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.GetKey())
+		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.GetKey(t.Computed))
 	case Literal:
 		// js的字符串可以用'', 但go中必须是"", 所以需要替换
 		c := t.Raw
@@ -47,11 +47,18 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	case LogicalExpression:
 		left := genGoCodeByNode(t.Left, dataKey)
 		right := genGoCodeByNode(t.Right, dataKey)
+
 		return fmt.Sprintf(`interfaceToBool(%s) %s interfaceToBool(%s)`, left, t.Operator, right)
 	case BinaryExpression:
 		left := genGoCodeByNode(t.Left, dataKey)
 		right := genGoCodeByNode(t.Right, dataKey)
-		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, t.Operator, right)
+		o := t.Operator
+		switch o {
+		case "===":
+			o = "=="
+		}
+
+		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, o, right)
 	case UnaryExpression:
 		arg := genGoCodeByNode(t.Argument, dataKey)
 		return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
@@ -78,7 +85,13 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		for i, v := range t.Arguments {
 			args[i] = genGoCodeByNode(v, dataKey)
 		}
-		return fmt.Sprintf(`interfaceToFunc(lookInterface(%s,"%s"))(%s)`, dataKey, name, strings.Join(args,","))
+		return fmt.Sprintf(`interfaceToFunc(lookInterface(%s,"%s"))(%s)`, dataKey, name, strings.Join(args, ","))
+	case ArrayExpression:
+		args := make([]string, len(t.Elements))
+		for i, v := range t.Elements {
+			args[i] = genGoCodeByNode(v, dataKey)
+		}
+		return fmt.Sprintf(`[]interface{}{%s}`, strings.Join(args, ","))
 	default:
 		panic(t)
 		//bs,_:=json.Marshal(t)
