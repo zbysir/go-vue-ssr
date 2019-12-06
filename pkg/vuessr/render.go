@@ -357,10 +357,10 @@ return ""
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
 		e.SlotName: fmt.Sprintf(`func(props map[string]interface{}) string{
-	%s := extendMap(map[string]interface{}{"%s": props}, %s)
+	%s := extendMap(%s, map[string]interface{}{"%s": props})
 _ = %s
 return %s
-}`, DataKey, e.PropsKey, DataKey, DataKey, srcCode),
+}`, DataKey, DataKey, e.PropsKey, DataKey, srcCode),
 	}
 
 	// 插槽会将原来的子代码去掉, 并将代码放在namedSlot里.
