@@ -1,6 +1,7 @@
 package vuessr
 
 import (
+	"fmt"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/html"
 	"os"
 	"strings"
@@ -160,6 +161,9 @@ func parseHtml(filename string) (*Element, error) {
 
 			if len(stack) == 0 {
 				break
+			}
+			if currentNode.TagName != token.Data {
+				panic(fmt.Sprintf("startTag is <%s> but endTag is </%s>", currentNode.TagName, token.Data))
 			}
 
 			preNode := stack[len(stack)-1]
