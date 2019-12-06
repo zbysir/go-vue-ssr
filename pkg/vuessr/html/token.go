@@ -7,11 +7,10 @@ package html
 import (
 	"bytes"
 	"errors"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/html/atom"
 	"io"
 	"strconv"
 	"strings"
-
-	"golang.org/x/net/html/atom"
 )
 
 // A TokenType is the type of a Token.

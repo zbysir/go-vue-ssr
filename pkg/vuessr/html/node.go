@@ -5,7 +5,7 @@
 package html
 
 import (
-	"golang.org/x/net/html/atom"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/html/atom"
 )
 
 // A NodeType is the type of a Node.
