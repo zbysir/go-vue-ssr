@@ -191,7 +191,13 @@ type GetterSetter interface {
 // for {{func(a)}}
 type Function func(args ...interface{}) interface{}
 
-type DirectivesFunc func(val interface{}, r *Render, options *Options)
+type DirectivesBinding struct{
+	Value interface{}
+	Arg string
+	Name string
+}
+
+type DirectivesFunc func(b DirectivesBinding, r *Render, options *Options)
 
 func emptyFunc(args ...interface{}) interface{} {
 	if len(args) != 0 {
@@ -247,7 +253,11 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 	if len(options.Directives) != 0 {
 		for _, d := range options.Directives {
 			if f, ok := r.directives[d.Name]; ok {
-				f(d.Value, r, options)
+				f(DirectivesBinding{
+					Value: d.Value,
+					Arg:   d.Arg,
+					Name:  d.Name,
+				}, r, options)
 			}
 		}
 	}
@@ -288,7 +298,7 @@ type Options struct {
 type directive struct {
 	Name  string
 	Value interface{}
-	Arg string 
+	Arg string
 }
 
 type Props map[string]interface{}

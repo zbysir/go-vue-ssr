@@ -109,7 +109,7 @@ func TestAttr(t *testing.T) {
 func TestStyle(t *testing.T) {
 	r := vuetpl.NewRender()
 
-	html := r.Component_xstyle(&vuetpl.Options{
+	html := r.Component_xStyle(&vuetpl.Options{
 		Props: map[string]interface{}{
 			"text": "bysir.jpg",
 		},
