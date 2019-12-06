@@ -234,6 +234,11 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 
 	// 调用组件
 	_, exist := app.Components[e.TagName]
+	if !exist {
+		t2 := string(tuoFeng2SheXing([]byte(e.TagName)))
+		_, exist = app.Components[t2]
+	}
+	// 蛇形驼峰
 	if exist {
 		options := OptionsGen{
 			StyleKeys:       e.StyleKeys,
@@ -409,12 +414,6 @@ func NewCompiler() *Compiler {
 
 func (a *Compiler) Component(name string) {
 	a.Components[name] = struct{}{}
-
-	// 蛇形驼峰
-	k2 := string(tuoFeng2SheXing([]byte(name)))
-	if name != k2 {
-		a.Components[k2] = struct{}{}
-	}
 }
 
 // 处理 {{}} 变量
