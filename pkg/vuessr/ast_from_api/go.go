@@ -56,6 +56,8 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		switch o {
 		case "===":
 			o = "=="
+		case "!==":
+			o = "!="
 		}
 
 		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, o, right)
