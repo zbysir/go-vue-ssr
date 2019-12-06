@@ -378,10 +378,10 @@ func genVFor(e *VFor, srcCode string) (code string) {
 
   for index, item := range lookInterfaceToSlice(%s, "%s") {
     c += func(xdata map[string]interface{}) string{
-        %s := extendMap(map[string]interface{}{
+        %s := extendMap(xdata, map[string]interface{}{
           "%s": index,
           "%s": item,
-        }, xdata)
+        })
 
         return %s
     }(%s)
