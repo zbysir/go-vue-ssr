@@ -11,7 +11,7 @@ import (
 // 用来生成模板字符串代码
 // 目的是为了解决递归渲染节点造成的性能问题, 不过这是一个难题, 先尝试, 不行就算了.
 
-func genComponentRenderFunc(app *App, pkgName, name string, file string) string {
+func genComponentRenderFunc(app *Compiler, pkgName, name string, file string) string {
 	ve, err := ParseVue(file)
 	if err != nil {
 		panic(err)
@@ -46,7 +46,7 @@ func tuoFeng2SheXing(src []byte) (out []byte) {
 	return
 }
 
-func genNew(app *App, pkgName string) string {
+func genNew(app *Compiler, pkgName string) string {
 	m := map[string]string{}
 	for k := range app.Components {
 		m[k] = fmt.Sprintf(`r.Component_%s`, k)
@@ -95,11 +95,12 @@ func GenAllFile(src, desc string) (err error) {
 
 	var components []string
 
-	app := NewApp()
+	app := NewCompiler()
 
 	for _, v := range vue {
 		_, fileName := filepath.Split(v)
 		name := strings.Split(fileName, ".")[0]
+
 		app.Component(name)
 
 		components = append(components, name)

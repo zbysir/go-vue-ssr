@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-type App struct {
+type Compiler struct {
 	Components map[string]struct{} // name=>node
 }
 
@@ -204,7 +204,7 @@ const (
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
-func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]string) {
+func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
 	defaultSlotCode := ""
@@ -317,7 +317,7 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 	return eleCode, namedSlotCode
 }
 
-func genVIf(e *VIf, srcCode string, app *App) (code string, namedSlotCode map[string]string) {
+func genVIf(e *VIf, srcCode string, app *Compiler) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
 	condition, err := ast_from_api.Js2Go(e.Condition, DataKey)
 	if err != nil {
@@ -398,8 +398,8 @@ func genVHtml(value string) (code string) {
 	return fmt.Sprintf(`interfaceToStr(%s)`, goCode)
 }
 
-func NewApp() *App {
-	return &App{
+func NewCompiler() *Compiler {
+	return &Compiler{
 		Components: map[string]struct{}{
 			"component": {},
 			"slot":      {},
@@ -407,9 +407,14 @@ func NewApp() *App {
 	}
 }
 
-func (a *App) Component(name string) {
-	a.Components[name] = struct {
-	}{}
+func (a *Compiler) Component(name string) {
+	a.Components[name] = struct{}{}
+
+	// 蛇形驼峰
+	k2 := string(tuoFeng2SheXing([]byte(name)))
+	if name != k2 {
+		a.Components[k2] = struct{}{}
+	}
 }
 
 // 处理 {{}} 变量

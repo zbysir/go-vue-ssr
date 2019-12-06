@@ -7,7 +7,7 @@ func TestParseVueVif(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := NewApp()
+	app := NewCompiler()
 	code, _ := e.GenCode(app)
 	t.Log(code)
 	return

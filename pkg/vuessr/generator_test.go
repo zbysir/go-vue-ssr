@@ -16,7 +16,7 @@ func TestGenAllFile(t *testing.T) {
 }
 
 func TestGenComponentRenderFunc(t *testing.T) {
-	app := NewApp()
+	app := NewCompiler()
 
 	code := genComponentRenderFunc(app, "gebera", "xx", `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\directive.vue`)
 	t.Log(code)
