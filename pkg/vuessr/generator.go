@@ -234,7 +234,7 @@ func (r *Render) Component_component(options *Options) string {
 		return c(options)
 	}
 
-	return fmt.Sprintf("not register com: %s", is)
+	return fmt.Sprintf("<p>not register com: %s</p>", is)
 }
 
 // 动态tag

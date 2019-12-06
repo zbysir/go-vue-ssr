@@ -5,6 +5,7 @@ import (
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast_from_api"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -40,7 +41,9 @@ func mapStringToGoCode(m map[string]string) string {
 	}
 	c := "map[string]string"
 	c += "{"
-	for k, v := range m {
+
+	for _, k := range getSortedKey(m) {
+		v := m[k]
 		c += fmt.Sprintf(`"%s": "%s",`, k, v)
 	}
 	c += "}"
@@ -48,10 +51,28 @@ func mapStringToGoCode(m map[string]string) string {
 	return c
 }
 
+func getSortedKey(m map[string]string) (keys []string) {
+	keys = make([]string, len(m))
+	index := 0
+	for k := range m {
+		keys[index] = k
+		index++
+	}
+	if len(m) < 2 {
+		return keys
+	}
+
+	sort.Strings(keys)
+
+	return
+}
+
 func mapGoCodeToCode(m map[string]string, valueType string) string {
 	c := "map[string]" + valueType
 	c += "{"
-	for k, v := range m {
+
+	for _, k := range getSortedKey(m) {
+		v := m[k]
 		c += fmt.Sprintf(`"%s": %s,`, k, v)
 	}
 	c += "}"
@@ -77,7 +98,8 @@ func mapJsCodeToCode(m map[string]string) string {
 	}
 	props := "map[string]interface{}"
 	props += "{"
-	for k, v := range m {
+	for _, k := range getSortedKey(m) {
+		v := m[k]
 		valueCode, err := ast_from_api.Js2Go(v, DataKey)
 		if err != nil {
 			log.Panicf("%v, %s", err, v)
