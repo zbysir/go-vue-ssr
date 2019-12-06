@@ -284,8 +284,11 @@ func (e *VueElement) GenCode(app *App) (code string, namedSlotCode map[string]st
 		} else {
 			// 静态节点
 			attrs := genAttrCode(e)
-			// 内联元素, slot应该放在标签里
-			eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, defaultSlotCode, e.TagName)
+			children := defaultSlotCode
+			if e.VHtml != "" {
+				children = genVHtml(e.VHtml)
+			}
+			eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, children, e.TagName)
 		}
 	}
 
@@ -364,6 +367,7 @@ return %s
 	code = `""`
 	return
 }
+
 func genVFor(e *VFor, srcCode string) (code string) {
 	vfArray := e.ArrayKey
 	vfItem := e.ItemKey
@@ -384,6 +388,14 @@ func genVFor(e *VFor, srcCode string) (code string) {
   }
 return c
 }()`, DataKey, vfArray, DataKey, vfIndex, vfItem, srcCode, DataKey)
+}
+
+func genVHtml(value string) (code string) {
+	goCode, err := ast_from_api.Js2Go(value, DataKey)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf(`interfaceToStr(%s)`, goCode)
 }
 
 func NewApp() *App {

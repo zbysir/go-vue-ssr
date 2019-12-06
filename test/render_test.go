@@ -105,3 +105,15 @@ func TestAttr(t *testing.T) {
 
 	t.Log(html)
 }
+
+func TestStyle(t *testing.T) {
+	r := vuetpl.NewRender()
+
+	html := r.Component_xstyle(&vuetpl.Options{
+		Props: map[string]interface{}{
+			"text": "bysir.jpg",
+		},
+	})
+
+	t.Log(html)
+}

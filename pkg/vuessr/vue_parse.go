@@ -24,6 +24,8 @@ type VueElement struct {
 	VSlot            *VSlot
 	VElse            bool // 如果是VElse节点则不会生成代码(而是在vif里生成代码)
 	VElseIf          bool
+	VHtml            string
+	VText            string
 }
 
 type Directive struct {
@@ -237,6 +239,9 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 		var vElse *ElseIf
 		var vElseIf *ElseIf
 
+		var vHtml string
+		var vText string
+
 		for _, attr := range e.Attrs {
 			oriKey := attr.Key
 			ss := strings.Split(oriKey, ":")
@@ -309,6 +314,10 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 						Types:     "else",
 						Condition: strings.Trim(attr.Val, " "),
 					}
+				case key == "v-html":
+					vHtml = strings.Trim(attr.Val, " ")
+				case key == "v-text":
+					vText = strings.Trim(attr.Val, " ")
 				default:
 					// 自定义指令
 					var name string
@@ -375,8 +384,8 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			Text:             e.Text,
 			Attrs:            attrs,
 			AttrsKeys:        attrsKeys,
-			ElseIfConditions: []ElseIf{},
 			Directives:       ds,
+			ElseIfConditions: []ElseIf{},
 			Class:            class,
 			Style:            style,
 			StyleKeys:        styleKeys,
@@ -387,6 +396,8 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			VSlot:            vSlot,
 			VElse:            vElse != nil,
 			VElseIf:          vElseIf != nil,
+			VHtml:            vHtml,
+			VText:            vText,
 		}
 
 		// 记录vif, 接下来的elseif将与这个节点关联
