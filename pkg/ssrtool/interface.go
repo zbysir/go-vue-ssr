@@ -3,6 +3,7 @@ package ssrtool
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func InterfaceToStr(s interface{}) (d string) {
@@ -35,7 +36,7 @@ func InterfaceToInt(s interface{}) (d int64) {
 }
 
 func InterfaceToSliceInt(s interface{}) (d []int64) {
-	ss := Interface2Slice(s)
+	ss := InterfaceToSlice(s)
 	d = make([]int64, len(ss))
 	for i, v := range ss {
 		d[i] = InterfaceToInt(v)
@@ -43,7 +44,7 @@ func InterfaceToSliceInt(s interface{}) (d []int64) {
 	return
 }
 
-func Interface2Slice(s interface{}) (d []interface{}) {
+func InterfaceToSlice(s interface{}) (d []interface{}) {
 	switch a := s.(type) {
 	case []interface{}:
 		return a
@@ -96,4 +97,65 @@ func InterfaceToBool(s interface{}) (d bool) {
 	default:
 		return true
 	}
+}
+
+// 在map[string]interface{}中找到多级key的value
+// kye: e.g. info.name
+func LookInterface(data interface{}, key string) (desc interface{}) {
+	m, isObj := data.(map[string]interface{})
+
+	kk := strings.Split(key, ".")
+	currKey := kk[0]
+
+	// 如果是对象, 则继续查找下一级
+	if len(kk) != 1 && isObj {
+		c, ok := m[currKey]
+		if !ok {
+			return
+		}
+		return LookInterface(c, strings.Join(kk[1:], "."))
+	}
+
+	if len(kk) == 1 {
+		if isObj {
+			c, ok := m[currKey]
+			if !ok {
+				return
+			}
+			return c
+		} else {
+			switch currKey {
+			case "length":
+				switch t := data.(type) {
+				// string
+				case string:
+					return len(t)
+				default:
+					// slice
+					return len(InterfaceToSlice(t))
+				}
+			}
+		}
+	} else {
+		// key不只有一个, 但是data不是对象, 说明出现了undefined的问题, 直接return
+		return
+	}
+
+	return
+}
+
+func LookStr(data interface{}, key string) string {
+	return InterfaceToStr(LookInterface(data, key))
+}
+
+func LookInt(data interface{}, key string) int64 {
+	return InterfaceToInt(LookInterface(data, key))
+}
+
+func LookSlice(data interface{}, key string) []interface{} {
+	return InterfaceToSlice(LookInterface(data, key))
+}
+
+func LookSliceInt(data interface{}, key string) []int64 {
+	return InterfaceToSliceInt(LookInterface(data, key))
 }

@@ -30,7 +30,7 @@ go-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
 
 所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包, 
 
-不过在github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+不过在github.com/bysir-zl/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
 ```
 a:= map[string]interface{}{
     "info": map[string]interface{}{
@@ -64,17 +64,17 @@ html = r.XComponent_helloworld()
   - `.length`
 - function call: eg. {{calcHeight(srcHeight)}}
 - directive
+- v-html
 
 **not support**
 - v-on
 - v-show
-- v-html: please use {{xx}} instead of it
 - v-text: please use {{xx}} instead of it
-- filter: please use function instead of it, eg. {{calcHeight(srcHeight)}}
+- filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
 - inject / provider
 
 **other**
-- prototype
+- prototype: 放在Prototype里的变量可以在任何组件中使用.
 
 ## 编译原理
 
