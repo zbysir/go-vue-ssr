@@ -28,11 +28,24 @@ go-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl
 ```
 将在./internal/vuetpl里生成go代码
 
-所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包
+所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包, 
+
+不过在github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+```
+a:= map[string]interface{}{
+    "info": map[string]interface{}{
+        "name": "bysir",
+    },
+}
+
+// 使用LookInterface方法可以方便的得到a.info.name的值.
+ssrtool.LookInterface(a, "info.name")
+``` 
 
 ### step3: run
 ```go
-html = vuetpl.XComponent_helloworld()
+r:=vuetpl.NewRender()
+html = r.XComponent_helloworld()
 ```
 
 ## vue features
@@ -64,9 +77,20 @@ html = vuetpl.XComponent_helloworld()
 - prototype
 
 ## 编译原理
+
+### 处理vue模板
+vue的模板其实是标准的html.
+
+所以使用golang.org/x/net/html包解析HTML, 得到Token之后再根据attr处理vue特殊的指令, 如v-if v-for, 最终得到vue节点.
+
+### 处理js
+在v-if或者{{}}中需要使用一些简单的js表达式, 如 v-if="a!=b && a!=c", 这样的表达式需要翻译成golang才能运行, 翻译成golang需要使用到js的AST,
+
+最开始的想法是使用golang实现或者找一个现有的库去解析JS, 但奈何没有找到, 实现起来也十分麻烦, 所以还是使用Node+acorn封装了一个API供以调用.
+
 ### 动态节点 / 静态节点 / 半动态节点
 **静态节点**
-静态节点在编译时就会生成静态的字符串里.
+静态节点在编译时就会生成静态的字符串.
 
 如
 ```
@@ -84,4 +108,14 @@ html = vuetpl.XComponent_helloworld()
 - 拥有`指令`: 由于指令中可以修改节点的属性, 只能在运行时动态生成html
 - `组件的root节点`
 
+动态节点使用方法生成: r.Tag(tagName, options).
+
 拥有`指令` 或者 是`组件的root节点` 则统一为动态节点
+
+**半动态节点**
+带有 动态class/style/attr的节点由于需要在运行时确定class/style/attr, 但由于也只需要修改这些属性, 所以最终生成的代码是
+```
+<div + mixinClass() + mixinStyle + mixinAttr()>children...</div>
+```
+
+半动态节点相比动态节点少了方法的调用, 性能会更好一些.
