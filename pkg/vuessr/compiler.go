@@ -10,7 +10,10 @@ import (
 )
 
 type Compiler struct {
-	Components map[string]struct{} // name=>node
+	// 组件的名字, 包含了驼峰/蛇形
+	// 如果在编译期间遇到的tag在components中, 就会使用组件方法.
+	// key是tag名字, value是驼峰
+	Components map[string]string
 }
 
 // 用来生成Option代码所需要的数据
@@ -233,12 +236,8 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 	}
 
 	// 调用组件
-	_, exist := app.Components[e.TagName]
-	if !exist {
-		t2 := string(tuoFeng2SheXing([]byte(e.TagName)))
-		_, exist = app.Components[t2]
-	}
-	// 蛇形驼峰
+	componentName, exist := app.Components[e.TagName]
+
 	if exist {
 		options := OptionsGen{
 			StyleKeys:       e.StyleKeys,
@@ -251,7 +250,7 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 			Directives:      e.Directives,
 		}
 		optionsCode := options.ToGoCode()
-		eleCode = fmt.Sprintf("r.Component_%s(%s)", e.TagName, optionsCode)
+		eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
 	} else if e.TagName == "template" {
 		// 使用子级
 		eleCode = defaultSlotCode
@@ -405,15 +404,20 @@ func genVHtml(value string) (code string) {
 
 func NewCompiler() *Compiler {
 	return &Compiler{
-		Components: map[string]struct{}{
-			"component": {},
-			"slot":      {},
+		Components: map[string]string{
+			"component": "component",
+			"slot":      "slot",
 		},
 	}
 }
 
 func (a *Compiler) Component(name string) {
-	a.Components[name] = struct{}{}
+	// 蛇形
+	tagName := tuoFeng2SheXing(name)
+	// 驼峰
+	compName := sheXing2TuoFeng(name)
+	a.Components[tagName] = compName
+	a.Components[compName] = compName
 }
 
 // 处理 {{}} 变量

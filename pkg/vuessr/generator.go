@@ -28,9 +28,9 @@ func genComponentRenderFunc(app *Compiler, pkgName, name string, file string) st
 		"}", pkgName, name, DataKey, DataKey, code)
 }
 
-func tuoFeng2SheXing(src []byte) (out []byte) {
+func tuoFeng2SheXing(src string) (outStr string) {
 	l := len(src)
-	out = []byte{}
+	var out []byte
 	for i := 0; i < l; i = i + 1 {
 		// 大写变小写
 		if 97-32 <= src[i] && src[i] <= 122-32 {
@@ -43,17 +43,40 @@ func tuoFeng2SheXing(src []byte) (out []byte) {
 		}
 	}
 
-	return
+	return string(out)
+}
+
+func sheXing2TuoFeng(src string) (outStr string) {
+	l := len(src)
+	out := make([]byte, l)
+
+	// 首字母
+	out[0] = src[0]
+
+	del := 0
+	for i := 1; i < l; i = i + 1 {
+		// 是下划线
+		if '-' == src[i] {
+			// 下划线的下一个是小写字母
+			if 97 <= src[i+1] && src[i+1] <= 122 {
+				out[i-del] = src[i+1] - 32
+			} else {
+				out[i-del] = src[i+1]
+			}
+			del++
+			i++
+		} else {
+			out[i-del] = src[i]
+		}
+	}
+	out = out[0 : l-del]
+	return string(out)
 }
 
 func genNew(app *Compiler, pkgName string) string {
 	m := map[string]string{}
-	for k := range app.Components {
-		m[k] = fmt.Sprintf(`r.Component_%s`, k)
-		k2 := string(tuoFeng2SheXing([]byte(k)))
-		if k != k2 {
-			m[k2] = fmt.Sprintf(`r.Component_%s`, k)
-		}
+	for tagName, comName := range app.Components {
+		m[tagName] = fmt.Sprintf(`r.Component_%s`, comName)
 	}
 
 	return fmt.Sprintf("package %s\n\n"+
@@ -119,7 +142,7 @@ func GenAllFile(src, desc string) (err error) {
 	for _, v := range vue {
 		_, fileName := filepath.Split(v)
 		name := strings.Split(fileName, ".")[0]
-
+		name = sheXing2TuoFeng(name)
 		code := genComponentRenderFunc(app, pkgName, name, v)
 		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", []byte(code), 0666)
 		if err != nil {
