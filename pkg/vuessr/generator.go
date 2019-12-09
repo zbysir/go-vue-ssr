@@ -184,7 +184,6 @@ func walkDir(dirPth string, suffix string) (files []string, err error) {
 }
 
 const buildInCode = `
-
 import (
 	"encoding/json"
 	"fmt"
@@ -200,27 +199,18 @@ type Render struct {
 	components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
-	// 用来存储渲染中生成的数据
-	// 如在指令中向上下文Set一个数据, 可以看v-save指令
-	Ctx GetterSetter
-}
-
-type GetterSetter interface {
-	Get(key string) interface{}
-	GetAll() map[string]interface{}
-	Set(key string, val interface{})
 }
 
 // for {{func(a)}}
 type Function func(args ...interface{}) interface{}
 
-type DirectivesBinding struct{
+type DirectivesBinding struct {
 	Value interface{}
-	Arg string
-	Name string
+	Arg   string
+	Name  string
 }
 
-type DirectivesFunc func(b DirectivesBinding, r *Render, options *Options)
+type DirectivesFunc func(b DirectivesBinding, options *Options)
 
 func emptyFunc(args ...interface{}) interface{} {
 	if len(args) != 0 {
@@ -280,7 +270,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 					Value: d.Value,
 					Arg:   d.Arg,
 					Name:  d.Name,
-				}, r, options)
+				}, options)
 			}
 		}
 	}
@@ -321,7 +311,7 @@ type Options struct {
 type directive struct {
 	Name  string
 	Value interface{}
-	Arg string
+	Arg   string
 }
 
 type Props map[string]interface{}
