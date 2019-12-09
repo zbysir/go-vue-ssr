@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/bysir-zl/go-vue-ssr/internal/vuetpl"
+	"github.com/bysir-zl/go-vue-ssr/pkg/ssrtool"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ func TestHelloworld(t *testing.T) {
 	r.Prototype = map[string]interface{}{"img": func(args ...interface{}) interface{} {
 		return fmt.Sprintf("%s?%d", args[0], 10000)
 	}}
-	html := r.Component_helloworld(&vuetpl.Options{
+	str := r.Component_helloworld(&vuetpl.Options{
 		Props: map[string]interface{}{
 			"name":        "bysir",
 			"sex":         "男",
@@ -24,7 +25,7 @@ func TestHelloworld(t *testing.T) {
 		},
 	})
 
-	t.Log(html)
+	t.Logf("%s", ssrtool.FormatHtml(str, 2))
 }
 
 func TestVIf(t *testing.T) {

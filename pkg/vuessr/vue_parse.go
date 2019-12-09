@@ -1,9 +1,9 @@
 package vuessr
 
 import (
-	"fmt"
-	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/html"
+	"golang.org/x/net/html"
 	"os"
+	"regexp"
 	"strings"
 )
 
@@ -129,92 +129,115 @@ type Element struct {
 	TagName  string
 	Attrs    []html.Attribute
 	Children []*Element
+	// 是否是root节点
+	// 正常情况下template下的第一个节点是root节点, 如 template > div.
+	// 如果没有按照vue组件的写法来写组件(template下只能有一个元素), 则所有元素都不会被当为root节点
+	Root bool
+}
+
+func hNodeToElement(nodes []*html.Node) []*Element {
+	var es []*Element
+	for _, node := range nodes {
+		text := ""
+		tagName := ""
+
+		omitNode := false
+		switch node.Type {
+		case html.TextNode:
+			// html中多个空格和\n都应该被替换为空格
+			text = strings.ReplaceAll(node.Data, "\n", " ")
+			reg := regexp.MustCompile(`\s+`)
+			text = reg.ReplaceAllString(text, " ")
+
+			// 忽略空节点
+			if text == " " || text == "" {
+				omitNode = true
+				break
+			}
+
+			tagName = "__string"
+		case html.DocumentNode:
+			tagName = node.Data
+		case html.ElementNode:
+			tagName = node.Data
+		default:
+			panic(node)
+		}
+
+		if omitNode {
+			continue
+		}
+
+		var cs []*Element
+		if node.FirstChild != nil {
+			c := node.FirstChild
+			var allC []*html.Node
+			for c != nil {
+				allC = append(allC, c)
+				c = c.NextSibling
+			}
+
+			cs = hNodeToElement(allC)
+		}
+
+		es = append(es, &Element{
+			Text:     text,
+			TagName:  tagName,
+			Attrs:    node.Attr,
+			Children: cs,
+		})
+	}
+	return es
 }
 
 // parse HTML
-func parseHtml(filename string) (*Element, error) {
+func parseHtml(filename string) ([]*Element, error) {
 	file, err := os.Open(filename)
 
 	if err != nil {
 		panic(err)
 	}
 
-	decoder := html.NewTokenizer(file)
-	var stack []*Element
-	var currentElement *Element
-
-	for {
-		token := decoder.Token()
-		switch token.Type {
-		case html.StartTagToken:
-			stack = append(stack, &Element{
-				"",
-				token.Data,
-				token.Attr,
-				[]*Element{},
-			})
-
-			break
-		case html.EndTagToken:
-			currentNode := stack[len(stack)-1]
-			stack = stack[:len(stack)-1]
-
-			if len(stack) == 0 {
-				break
-			}
-			if currentNode.TagName != token.Data {
-				panic(fmt.Sprintf("startTag is <%s> but endTag is </%s>", currentNode.TagName, token.Data))
-			}
-
-			preNode := stack[len(stack)-1]
-			preNode.Children = append(preNode.Children, currentNode)
-			currentElement = preNode
-
-			break
-		case html.SelfClosingTagToken:
-			if len(stack) == 0 {
-				break
-			}
-
-			preNode := stack[len(stack)-1]
-			preNode.Children = append(preNode.Children, &Element{
-				"",
-				token.Data,
-				token.Attr,
-				[]*Element{},
-			})
-			currentElement = preNode
-		case html.TextToken:
-			if len(stack) == 0 {
-				break
-			}
-
-			lastNode := stack[len(stack)-1]
-			lastNode.Children = append(lastNode.Children, &Element{Text: string(token.Data[:]), TagName: "__string"})
-			break
-		}
-
-		tp := decoder.Next()
-		if tp == html.ErrorToken {
-			break
-		}
+	root := &html.Node{
+		Type: html.ElementNode,
+	}
+	node, err := html.ParseFragment(file, root)
+	if err != nil {
+		return nil, err
 	}
 
-	return currentElement, nil
+	e := hNodeToElement(node)
+	return e, nil
 }
 
 func ParseVue(filename string) (v *VueElement, err error) {
-	e, err := parseHtml(filename)
+	es, err := parseHtml(filename)
 	if err != nil {
 		return
 	}
+
 	p := VueElementParser{}
-	v = p.Parse(e)
+	if len(es) == 1 {
+		// 按照vue组件写法才会有root节点
+		if es[0].TagName == "template" {
+			if len(es[0].Children) == 1 {
+				es[0].Children[0].Root = true
+			}
+		}
+		v = p.Parse(es[0])
+	} else {
+		// 如果是多个节点, 则自动添加template包裹
+		// 这种情况下不会存在root节点
+		e := &Element{
+			TagName:  "template",
+			Children: es,
+		}
+		v = p.Parse(e)
+	}
 	return
 }
 
 type VueElementParser struct {
-	hasRoot bool // 是否已经有了root节点, 如果有了就不会再查找root节点了.
 }
 
 func (p VueElementParser) Parse(e *Element) *VueElement {
@@ -368,22 +391,10 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			}
 		}
 
-		isRoot := false
-		if !p.hasRoot {
-			// 最外层的template下的节点是根节点
-			if e.TagName == "template" {
-				isRoot = true
-				p.hasRoot = true
-			}
-		}
-
 		ch := p.parseList(e.Children)
-		for _, v := range ch {
-			v.IsRoot = isRoot
-		}
 
 		v := &VueElement{
-			IsRoot:           false,
+			IsRoot:           e.Root,
 			TagName:          e.TagName,
 			Text:             e.Text,
 			Attrs:            attrs,
@@ -407,8 +418,11 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 		// 记录vif, 接下来的elseif将与这个节点关联
 		if vIf != nil {
 			ifVueEle = v
-		} else if e.TagName != "__string" && vElse == nil && vElseIf == nil {
-			ifVueEle = nil
+		} else {
+			// 如果有vif环境了, 但是中间跳过了, 则需要取消掉vif环境 (v-else 必须与v-if 相邻)
+			if vElse == nil && vElseIf == nil {
+				ifVueEle = nil
+			}
 		}
 
 		if vElseIf != nil {

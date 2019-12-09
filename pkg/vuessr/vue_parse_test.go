@@ -16,7 +16,7 @@ func TestParseVue(t *testing.T) {
 }
 
 func TestHtml(t *testing.T) {
-	e,err:= parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\helloworld.vue`)
+	e, err := parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\helloworld.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}

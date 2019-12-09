@@ -12,5 +12,6 @@
     <p v-set:swiper='{id: id, value: {"swiper": {"speed": speed}}}'></p>
 
     <p v-get></p>
+    333
   </div>
 </template>
