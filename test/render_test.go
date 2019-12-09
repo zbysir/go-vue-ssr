@@ -55,9 +55,10 @@ func (g GetSet) GetAll() map[string]interface{} {
 
 func TestVDirective(t *testing.T) {
 	r := vuetpl.NewRender()
-	r.Ctx = GetSet{}
+	// 使用闭包访问ctx, 以实现在多个directive中共享数据
+	ctx := GetSet{}
 
-	r.Directive("v-animate", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
+	r.Directive("v-animate", func(binding vuetpl.DirectivesBinding, options *vuetpl.Options) {
 		// add class
 		c := vuetpl.LookInterface(binding.Value, "xclass")
 		if c != nil {
@@ -65,14 +66,14 @@ func TestVDirective(t *testing.T) {
 			options.Class = append(options.Class, vuetpl.InterfaceToStr(c))
 		}
 	})
-	r.Directive("v-set", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
-		r.Ctx.Set(
+	r.Directive("v-set", func(binding vuetpl.DirectivesBinding, options *vuetpl.Options) {
+		ctx.Set(
 			binding.Arg,
 			vuetpl.LookInterface(binding.Value, "value"))
 	})
-	r.Directive("v-get", func(binding vuetpl.DirectivesBinding, r *vuetpl.Render, options *vuetpl.Options) {
+	r.Directive("v-get", func(binding vuetpl.DirectivesBinding, options *vuetpl.Options) {
 		options.Slot["default"] = func(props map[string]interface{}) string {
-			bs, _ := json.Marshal(r.Ctx.GetAll())
+			bs, _ := json.Marshal(ctx.GetAll())
 			return string(bs)
 		}
 	})
