@@ -3,17 +3,22 @@ package ssrtool
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/html"
 	"strings"
 )
 
-func InterfaceToStr(s interface{}) (d string) {
+func InterfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
-	case int, int64, string, float64:
-		return fmt.Sprintf("%v", a)
+	case int, string, float64:
+		d = fmt.Sprintf("%v", a)
 	default:
 		bs, _ := json.Marshal(a)
-		return string(bs)
+		d = string(bs)
 	}
+	if len(escaped) == 1 && escaped[0] {
+		d = escape(d)
+	}
+	return
 }
 
 func InterfaceToInt(s interface{}) (d int64) {
@@ -144,8 +149,8 @@ func LookInterface(data interface{}, key string) (desc interface{}) {
 	return
 }
 
-func LookStr(data interface{}, key string) string {
-	return InterfaceToStr(LookInterface(data, key))
+func LookStr(data interface{}, key string, escaped ...bool) string {
+	return InterfaceToStr(LookInterface(data, key), escaped...)
 }
 
 func LookInt(data interface{}, key string) int64 {
@@ -158,4 +163,8 @@ func LookSlice(data interface{}, key string) []interface{} {
 
 func LookSliceInt(data interface{}, key string) []int64 {
 	return InterfaceToSliceInt(LookInterface(data, key))
+}
+
+func escape(src string) string {
+	return html.EscapeString(src)
 }

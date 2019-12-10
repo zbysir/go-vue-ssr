@@ -291,6 +291,8 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 			children := defaultSlotCode
 			if e.VHtml != "" {
 				children = genVHtml(e.VHtml)
+			} else if e.VText != "" {
+				children = genVText(e.VText)
 			}
 			eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, children, e.TagName)
 		}
@@ -402,6 +404,14 @@ func genVHtml(value string) (code string) {
 	return fmt.Sprintf(`interfaceToStr(%s)`, goCode)
 }
 
+func genVText(value string) (code string) {
+	goCode, err := ast_from_api.Js2Go(value, DataKey)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf(`interfaceToStr(%s, true)`, goCode)
+}
+
 func NewCompiler() *Compiler {
 	return &Compiler{
 		Components: map[string]string{
@@ -420,7 +430,7 @@ func (a *Compiler) Component(name string) {
 	a.Components[compName] = compName
 }
 
-// 处理 {{}} 变量
+// 处理 Mustache {{}} 差值
 func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`\{\{.+?\}\}`)
 
@@ -431,7 +441,7 @@ func injectVal(src string) (to string) {
 		if err != nil {
 			panic(err)
 		}
-		return fmt.Sprintf(`"+interfaceToStr(%s)+"`, goCode)
+		return fmt.Sprintf(`"+interfaceToStr(%s, true)+"`, goCode)
 	})
 
 	return src

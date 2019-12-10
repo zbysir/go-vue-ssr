@@ -121,3 +121,20 @@ func TestStyle(t *testing.T) {
 
 	t.Log(html)
 }
+
+func TestVText(t *testing.T) {
+	r := vuetpl.NewRender()
+
+	html := r.Component_vtext(&vuetpl.Options{
+		Props: map[string]interface{}{
+			"text": "<p color=red>bysir.jpg</p>",
+			"html": "<p color=red>bysir.jpg</p>",
+		},
+	})
+
+	if html != "<div><div>&lt;p color=red&gt;bysir.jpg&lt;/p&gt;</div><div><p color=red>bysir.jpg</p></div> &lt;p color=red&gt;bysir.jpg&lt;/p&gt; </div>" {
+		t.Fatal(html)
+	}
+
+	t.Log(html)
+}

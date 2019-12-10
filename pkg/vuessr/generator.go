@@ -187,6 +187,7 @@ const buildInCode = `
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/html"
 	"sort"
 	"strings"
 )
@@ -586,14 +587,19 @@ func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
 	return interface2Slice(m)
 }
 
-func interfaceToStr(s interface{}) (d string) {
+func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
 	case int, string, float64:
-		return fmt.Sprintf("%v", a)
+		d = fmt.Sprintf("%v", a)
 	default:
 		bs, _ := json.Marshal(a)
-		return string(bs)
+		d = string(bs)
 	}
+
+	if len(escaped) == 1 && escaped[0] {
+		d = escape(d)
+	}
+	return
 }
 
 var InterfaceToStr = interfaceToStr
@@ -713,5 +719,9 @@ func shouldLookInterface(data interface{}, key string) (desc interface{}, exist 
 	}
 
 	return
+}
+
+func escape(src string) string {
+	return html.EscapeString(src)
 }
 `
