@@ -3,6 +3,7 @@ package ssrtool
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/buger/jsonparser"
 	"golang.org/x/net/html"
 	"strings"
 )
@@ -102,6 +103,15 @@ func InterfaceToBool(s interface{}) (d bool) {
 	default:
 		return true
 	}
+}
+
+func LookJson(bs []byte, key string) (desc interface{}) {
+	v, _, _, err := jsonparser.Get(bs, strings.Split(key, ".")...)
+	if err != nil {
+		return
+	}
+	_ = json.Unmarshal(v, &desc)
+	return
 }
 
 // 在map[string]interface{}中找到多级key的value

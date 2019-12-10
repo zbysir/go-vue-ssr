@@ -2,6 +2,7 @@ package vuessr
 
 import (
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -144,7 +145,13 @@ func GenAllFile(src, desc string) (err error) {
 		name := strings.Split(fileName, ".")[0]
 		name = sheXing2TuoFeng(name)
 		code := genComponentRenderFunc(app, pkgName, name, v)
-		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", []byte(code), 0666)
+		var codeBs []byte
+		codeBs, err = format.Source([]byte(code))
+		if err != nil {
+			return
+		}
+
+		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", codeBs, 0666)
 		if err != nil {
 			return
 		}
