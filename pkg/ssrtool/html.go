@@ -19,13 +19,13 @@ func FormatHtml(src string, indent int) (out string) {
 				if i == -1 {
 					break
 				}
+				// 在标签闭合之前添加换行符和空格
 				i++
 				o.WriteByte('\n')
 				o.Write(repeat(' ', ind-2))
 				o.WriteString(src[save:i])
 				save = i
 				ind -= 2
-
 			} else {
 				i++
 				i = skipTo(i, src, '>')

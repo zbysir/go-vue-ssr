@@ -89,6 +89,8 @@ func TestVDirective(t *testing.T) {
 		},
 	})
 
+	html = ssrtool.FormatHtml(html, 2)
+
 	t.Log(html)
 }
 
