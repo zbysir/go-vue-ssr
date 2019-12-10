@@ -1,5 +1,4 @@
-# vue-ssr
-vue server side render but golang
+使用golang渲染vue
 
 ## cause
 
@@ -42,7 +41,7 @@ a:= map[string]interface{}{
 ssrtool.LookInterface(a, "info.name")
 ``` 
 
-### step3: run
+### step 3: run
 ```go
 r:=vuetpl.NewRender()
 html = r.XComponent_helloworld()
@@ -72,10 +71,9 @@ html = r.XComponent_helloworld()
 - v-show
 - filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
 - inject / provider
-- v-once
 
 **other**
-- prototype: 放在Prototype里的变量可以在任何组件中使用, 如调用全局的方法.
+- prototype: 放在Prototype里的变量可以在任何组件中使用.
 
 ## 编译原理
 
