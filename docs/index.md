@@ -6,7 +6,7 @@
 - https://markus.oberlehner.net/blog/how-to-drastically-reduce-estimated-input-latency-and-time-to-interactive-of-ssr-vue-applications/
 - https://mp.weixin.qq.com/s?__biz=MzUxMzcxMzE5Ng==&mid=2247485601&amp;idx=1&amp;sn=97a45254a771d13789faed81316b465a&source=41#wechat_redirect
 
-虽然vuessr有优缺点, 但我认为vue的模板格式清晰易懂, 用来替换golang的tpl引擎或者其他模板引擎(如raymond)是有价值的.
+虽然vuessr有缺点, 但我认为vue的模板格式清晰易懂, 用来替换golang的tpl引擎或者其他模板引擎(如raymond)是有价值的.
 
 总的来说, 如果你的项目追求的是性能, 对于vue特性需求不大或者压根不需要vue特性, 那你就可以试一试这个项目.
 
