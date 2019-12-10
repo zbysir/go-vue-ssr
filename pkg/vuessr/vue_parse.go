@@ -1,9 +1,10 @@
 package vuessr
 
 import (
+	"fmt"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 	"os"
-	"regexp"
 	"strings"
 )
 
@@ -145,23 +146,28 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 		switch node.Type {
 		case html.TextNode:
 			// html中多个空格和\n都应该被替换为空格
-			text = strings.ReplaceAll(node.Data, "\n", " ")
-			reg := regexp.MustCompile(`\s+`)
-			text = reg.ReplaceAllString(text, " ")
+			// 注意 <script> 中的节点不应该别替换
+			//text = strings.ReplaceAll(node.Data, "\n", " ")
+			//reg := regexp.MustCompile(`\s+`)
+			//text = reg.ReplaceAllString(text, " ")
 
 			// 忽略空节点
-			if text == " " || text == "" {
+			if strings.Trim(node.Data, "\n ") == "" {
 				omitNode = true
 				break
 			}
-
+			text = node.Data
 			tagName = "__string"
 		case html.DocumentNode:
-			tagName = node.Data
+			tagName = "document"
 		case html.ElementNode:
 			tagName = node.Data
+		case html.CommentNode:
+			omitNode = true
+		case html.DoctypeNode:
+			omitNode = true
 		default:
-			panic(node)
+			panic(uint32(node.Type))
 		}
 
 		if omitNode {
@@ -191,23 +197,52 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 }
 
 // parse HTML
-func parseHtml(filename string) ([]*Element, error) {
+func parseHtml(filename string) (es []*Element, err error) {
 	file, err := os.Open(filename)
-
 	if err != nil {
-		panic(err)
+		return
 	}
 
-	root := &html.Node{
-		Type: html.ElementNode,
-	}
-	node, err := html.ParseFragment(file, root)
+	var nodes []*html.Node
+
+	// 两个情况: 一种是<template>开头的 则是标准的vue组件, 一种vue组件如html页面. 但为了简化流程, html页面也可以被当为vue组件来渲染.
+	peek := make([]byte, len("<template>"))
+	_, err = file.Read(peek)
 	if err != nil {
-		return nil, err
+		return
+	}
+	_, _ = file.Seek(0, 0)
+
+	if string(peek) == "<template>" {
+		root := &html.Node{
+			Type:     html.ElementNode,
+			DataAtom: atom.Div,
+			Data:     atom.Div.String(),
+		}
+		nodes, err = html.ParseFragment(file, root)
+		if err != nil {
+			return
+		}
+	} else {
+		var node *html.Node
+		node, err = html.Parse(file)
+		if err != nil {
+			return
+		}
+		if node.Type == html.DocumentNode {
+			c := node.FirstChild
+			for c != nil {
+				nodes = append(nodes, c)
+				c = c.NextSibling
+			}
+		} else {
+			err = fmt.Errorf("bad nodeType: %d, want DocumentNode", node.Type)
+			return
+		}
 	}
 
-	e := hNodeToElement(node)
-	return e, nil
+	es = hNodeToElement(nodes)
+	return
 }
 
 func ParseVue(filename string) (v *VueElement, err error) {
@@ -420,7 +455,8 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			ifVueEle = v
 		} else {
 			// 如果有vif环境了, 但是中间跳过了, 则需要取消掉vif环境 (v-else 必须与v-if 相邻)
-			if vElse == nil && vElseIf == nil {
+			isEmptyNode := e.TagName == "__string" && len(strings.Trim(e.Text, "\n ")) != 0
+			if !isEmptyNode && vElse == nil && vElseIf == nil {
 				ifVueEle = nil
 			}
 		}

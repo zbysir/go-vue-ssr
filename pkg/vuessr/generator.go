@@ -2,6 +2,7 @@ package vuessr
 
 import (
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -144,7 +145,13 @@ func GenAllFile(src, desc string) (err error) {
 		name := strings.Split(fileName, ".")[0]
 		name = sheXing2TuoFeng(name)
 		code := genComponentRenderFunc(app, pkgName, name, v)
-		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", []byte(code), 0666)
+		var codeBs []byte
+		codeBs, err = format.Source([]byte(code))
+		if err != nil {
+			return
+		}
+
+		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", codeBs, 0666)
 		if err != nil {
 			return
 		}
@@ -187,6 +194,7 @@ const buildInCode = `
 import (
 	"encoding/json"
 	"fmt"
+	"golang.org/x/net/html"
 	"sort"
 	"strings"
 )
@@ -586,14 +594,19 @@ func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
 	return interface2Slice(m)
 }
 
-func interfaceToStr(s interface{}) (d string) {
+func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
 	case int, string, float64:
-		return fmt.Sprintf("%v", a)
+		d = fmt.Sprintf("%v", a)
 	default:
 		bs, _ := json.Marshal(a)
-		return string(bs)
+		d = string(bs)
 	}
+
+	if len(escaped) == 1 && escaped[0] {
+		d = escape(d)
+	}
+	return
 }
 
 var InterfaceToStr = interfaceToStr
@@ -713,5 +726,9 @@ func shouldLookInterface(data interface{}, key string) (desc interface{}, exist 
 	}
 
 	return
+}
+
+func escape(src string) string {
+	return html.EscapeString(src)
 }
 `

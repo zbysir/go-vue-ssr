@@ -1,5 +1,4 @@
-# vue-ssr
-vue server side render but golang
+使用golang渲染vue
 
 ## cause
 
@@ -42,7 +41,7 @@ a:= map[string]interface{}{
 ssrtool.LookInterface(a, "info.name")
 ``` 
 
-### step3: run
+### step 3: run
 ```go
 r:=vuetpl.NewRender()
 html = r.XComponent_helloworld()
@@ -72,10 +71,9 @@ html = r.XComponent_helloworld()
 - v-show
 - filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
 - inject / provider
-- v-once
 
 **other**
-- prototype: 放在Prototype里的变量可以在任何组件中使用, 如调用全局的方法.
+- prototype: 放在Prototype里的变量可以在任何组件中使用.
 
 ## 编译原理
 
@@ -83,6 +81,9 @@ html = r.XComponent_helloworld()
 vue的模板其实是标准的html.
 
 所以使用golang.org/x/net/html包解析HTML, 得到Token之后再根据attr处理vue特殊的指令, 如v-if v-for, 最终得到vue节点.
+
+> .vue文件应该遵守html的格式要求(如head里只能放head/title/base/link/meta/script/style), 否则最终渲染出来的格式可能会不一致, 如在head中的标签会被移动到body里, 
+> 这是因为html包就是这样的行为(后期可能会修改这个行为).
 
 ### 处理js
 在v-if或者{{}}中需要使用一些简单的js表达式, 如 v-if="a!=b && a!=c", 这样的表达式需要翻译成golang才能运行, 翻译成golang需要使用到js的AST,
