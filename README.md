@@ -64,12 +64,12 @@ html = r.XComponent_helloworld()
   - `.length`
 - function call: eg. {{calcHeight(srcHeight)}}
 - directive
-- v-html
+- v-html (use html.escape)
+- v-text
 
 **not support**
 - v-on
 - v-show
-- v-text: please use {{xx}} instead of it
 - filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
 - inject / provider
 
