@@ -10,7 +10,7 @@ import (
 )
 
 // 用来生成模板字符串代码
-// 目的是为了解决递归渲染节点造成的性能问题, 不过这是一个难题, 先尝试, 不行就算了.
+// 目的是为了解决递归渲染节点造成的性能问题
 
 func genComponentRenderFunc(app *Compiler, pkgName, name string, file string) string {
 	ve, err := ParseVue(file)
@@ -89,6 +89,17 @@ func genNew(app *Compiler, pkgName string) string {
 		pkgName, mapGoCodeToCode(m, "ComponentFunc"))
 }
 
+// 组件名字, 驼峰
+func componentName(src string) string {
+	return sheXing2TuoFeng(src)
+}
+
+type VueFile struct{
+	ComponentName string // xText
+	Path string
+	Filename string // x-text.vue
+}
+
 // 生成并写入文件夹
 func GenAllFile(src, desc string) (err error) {
 	// 生成文件夹
@@ -98,60 +109,65 @@ func GenAllFile(src, desc string) (err error) {
 	}
 
 	// 删除老的.vue.go文件
-
-	del, err := walkDir(desc, ".vue.go")
+	oldComp, err := walkDir(desc, ".vue.go")
 	if err != nil {
 		return
 	}
+	oldCompMap := map[string]struct{}{}
 
-	for _, v := range del {
-		err = os.Remove(v)
-		if err != nil {
-			return
-		}
+	for _, v := range oldComp {
+		_, fileName := filepath.Split(v)
+		name := componentName(strings.Split(fileName, ".")[0])
+		oldCompMap[name] = struct{}{}
 	}
 
 	// 生成新的
-	vue, err := walkDir(src, ".vue")
+	vueFiles, err := walkDir(src, ".vue")
 	if err != nil {
 		return
 	}
 
-	var components []string
+	c := NewCompiler()
 
-	app := NewCompiler()
+	var vs []VueFile
 
-	for _, v := range vue {
+	for _, v := range vueFiles {
 		_, fileName := filepath.Split(v)
-		name := strings.Split(fileName, ".")[0]
+		name := componentName(strings.Split(fileName, ".")[0])
 
-		app.Component(name)
-
-		components = append(components, name)
+		vs = append(vs, VueFile{
+			ComponentName: name,
+			Path:          v,
+			Filename:      fileName,
+		})
 	}
 
 	_, pkgName := filepath.Split(desc)
 
-	// 注册vue组件, 用于动态组件
-	code := genNew(app, pkgName)
+	// 注册vue组件代码
+	code := genNew(c, pkgName)
 	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"new.go", []byte(code), 0666)
 	if err != nil {
 		return
 	}
 
 	// 生成vue组件
-	for _, v := range vue {
+	for _, v := range vueFiles {
+		// text.vue
 		_, fileName := filepath.Split(v)
 		name := strings.Split(fileName, ".")[0]
-		name = sheXing2TuoFeng(name)
-		code := genComponentRenderFunc(app, pkgName, name, v)
+		code := genComponentRenderFunc(c, pkgName, sheXing2TuoFeng(name), v)
 		var codeBs []byte
 		codeBs, err = format.Source([]byte(code))
 		if err != nil {
 			return
 		}
 
-		err = ioutil.WriteFile(desc+string(os.PathSeparator)+fileName+".go", codeBs, 0666)
+		if oldCompMap[]
+
+		ioutil.ReadFile()
+
+		err = ioutil.WriteFile(desc+string(os.PathSeparator)+name+".vue.go", codeBs, 0666)
 		if err != nil {
 			return
 		}

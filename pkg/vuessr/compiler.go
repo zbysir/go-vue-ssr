@@ -421,7 +421,7 @@ func NewCompiler() *Compiler {
 	}
 }
 
-func (a *Compiler) Component(name string) {
+func (a *Compiler) AddComponent(name string) {
 	// 蛇形
 	tagName := tuoFeng2SheXing(name)
 	// 驼峰
