@@ -1,5 +1,5 @@
 # Go-vue-ssr
-Vue server side render but golang. https://bysir-zl.github.io/go-vue-ssr
+Vue server side render but golang. [https://bysir-zl.github.io/go-vue-ssr](https://bysir-zl.github.io/go-vue-ssr)
 
 Hey vue go
 ## Cause
@@ -40,7 +40,7 @@ Hey vue go
 
 好处就是性能至少能提升1个数量级, 坏处就是舍去虚拟节点也就无法实现vue的数据绑定特性.
 
-## example
+## Example
 > 完整代码[在这](https://github.com/bysir-zl/go-vue-ssr/tree/master/example/helloworld)
 
 编写vue组件代码如下: (仅支持template块)
@@ -108,8 +108,7 @@ r := vuetpl.NewRender()
 html = r.Component_helloworld()
 ```
 
-## Vue Template Syntax
-**support**
+## Supported Vue Template Syntax
 - [Text](https://vuejs.org/v2/guide/syntax.html#Text)
   - mustache syntax (double curly braces)
   - v-text (use html.escape)
@@ -140,13 +139,13 @@ html = r.Component_helloworld()
 
 - Using JavaScript Expressions (by AST)
   - `+ && || !`
-  - `function call` e.g. {{calcHeight(srcHeight)}}
+  - `function call` e.g. { {calcHeight(srcHeight)} }
   - `.length`
   - `'list-' + id`
 **not support**
 - v-on
 - v-show
-- filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
+- filter: please use function instead of it, e.g. \{\{calcHeight(srcHeight)}}
 - inject / provider
 - v-once
 
