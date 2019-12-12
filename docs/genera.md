@@ -16,7 +16,7 @@ vue的模板其实是标准的html.
 所以使用golang.org/x/net/html包解析HTML, 得到Token之后再根据attr处理vue特殊的指令, 如v-if v-for, 最终得到vue节点.
 
 ### 处理js
-在v-if或者{ {} }中需要使用一些简单的js表达式, 如 v-if="a!=b && a!=c", 这样的表达式需要翻译成golang才能运行, 翻译成golang需要使用到js的AST,
+在v-if或者\{\{}}中需要使用一些简单的js表达式, 如 v-if="a!=b && a!=c", 这样的表达式需要翻译成golang才能运行, 翻译成golang需要使用到js的AST,
 
 最开始的想法是使用golang实现或者找一个现有的库去解析JS, 但奈何没有找到, 实现起来也十分麻烦, 所以还是使用Node+acorn封装了一个API供以调用.
 

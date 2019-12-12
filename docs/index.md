@@ -139,7 +139,7 @@ html = r.Component_helloworld()
 
 - Using JavaScript Expressions (by AST)
   - `+ && || !`
-  - `function call` e.g. { {calcHeight(srcHeight)} }
+  - `function call` e.g. \{\{calcHeight(srcHeight)}}
   - `.length`
   - `'list-' + id`
 **not support**
