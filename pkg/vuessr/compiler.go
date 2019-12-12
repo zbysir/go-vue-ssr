@@ -207,7 +207,7 @@ const (
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
-func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[string]string) {
+func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
 	defaultSlotCode := ""
@@ -219,7 +219,7 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 			if v.VElse || v.VElseIf {
 				continue
 			}
-			childCode, childNamedSlotCode := v.GenCode(app)
+			childCode, childNamedSlotCode := c.GenEleCode(v)
 			if defaultSlotCode != "" {
 				defaultSlotCode += "+"
 			}
@@ -236,7 +236,7 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 	}
 
 	// 调用组件
-	componentName, exist := app.Components[e.TagName]
+	componentName, exist := c.Components[e.TagName]
 
 	if exist {
 		options := OptionsGen{
@@ -314,7 +314,7 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 
 	if e.VIf != nil {
 		var namedSlotCode2 map[string]string
-		eleCode, namedSlotCode2 = genVIf(e.VIf, eleCode, app)
+		eleCode, namedSlotCode2 = genVIf(e.VIf, eleCode, c)
 		for i, v := range namedSlotCode2 {
 			namedSlotCode[i] = v
 		}
@@ -323,7 +323,7 @@ func (e *VueElement) GenCode(app *Compiler) (code string, namedSlotCode map[stri
 	return eleCode, namedSlotCode
 }
 
-func genVIf(e *VIf, srcCode string, app *Compiler) (code string, namedSlotCode map[string]string) {
+func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
 	condition, err := ast_from_api.Js2Go(e.Condition, DataKey)
 	if err != nil {
@@ -336,7 +336,7 @@ func genVIf(e *VIf, srcCode string, app *Compiler) (code string, namedSlotCode m
 if interfaceToBool(%s) {return %s`, condition, srcCode)
 	// 继续处理else节点
 	for _, v := range e.ElseIf {
-		eleCode, namedSlotCode2 := v.VueElement.GenCode(app)
+		eleCode, namedSlotCode2 := c.GenEleCode(v.VueElement)
 		for k, v := range namedSlotCode2 {
 			namedSlotCode[k] = v
 		}
@@ -432,7 +432,7 @@ func (a *Compiler) AddComponent(name string) {
 
 // 处理 Mustache {{}} 差值
 func injectVal(src string) (to string) {
-	reg := regexp.MustCompile(`\{\{.+?\}\}`)
+	reg := regexp.MustCompile(`{{.+?}}`)
 
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]

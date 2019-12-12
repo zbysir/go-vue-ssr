@@ -1,7 +1,9 @@
 package vuessr
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/errors"
 	"go/format"
 	"io/ioutil"
 	"os"
@@ -12,12 +14,12 @@ import (
 // 用来生成模板字符串代码
 // 目的是为了解决递归渲染节点造成的性能问题
 
-func genComponentRenderFunc(app *Compiler, pkgName, name string, file string) string {
+func genComponentRenderFunc(c *Compiler, pkgName, name string, file string) string {
 	ve, err := ParseVue(file)
 	if err != nil {
 		panic(err)
 	}
-	code, _ := ve.GenCode(app)
+	code, _ := c.GenEleCode(ve)
 
 	// 处理多余的纯字符串拼接: "a"+"b" => "ab"
 	code = strings.Replace(code, `"+"`, "", -1)
@@ -74,9 +76,9 @@ func sheXing2TuoFeng(src string) (outStr string) {
 	return string(out)
 }
 
-func genNew(app *Compiler, pkgName string) string {
+func genNew(components map[string]string, pkgName string) string {
 	m := map[string]string{}
-	for tagName, comName := range app.Components {
+	for tagName, comName := range components {
 		m[tagName] = fmt.Sprintf(`r.Component_%s`, comName)
 	}
 
@@ -94,10 +96,10 @@ func componentName(src string) string {
 	return sheXing2TuoFeng(src)
 }
 
-type VueFile struct{
+type VueFile struct {
 	ComponentName string // xText
-	Path string
-	Filename string // x-text.vue
+	Path          string
+	Filename      string // x-text.vue
 }
 
 // 生成并写入文件夹
@@ -108,17 +110,22 @@ func GenAllFile(src, desc string) (err error) {
 		return
 	}
 
-	// 删除老的.vue.go文件
+	// 老的.vue.go文件
 	oldComp, err := walkDir(desc, ".vue.go")
 	if err != nil {
 		return
 	}
-	oldCompMap := map[string]struct{}{}
 
+	oldVs := map[string]VueFile{}
 	for _, v := range oldComp {
 		_, fileName := filepath.Split(v)
-		name := componentName(strings.Split(fileName, ".")[0])
-		oldCompMap[name] = struct{}{}
+		name := componentName(strings.TrimSuffix(fileName, ".vue.go"))
+		//oldCompMap[name] = struct{}{}
+		oldVs[name] = VueFile{
+			ComponentName: name,
+			Path:          v,
+			Filename:      fileName,
+		}
 	}
 
 	// 生成新的
@@ -127,48 +134,79 @@ func GenAllFile(src, desc string) (err error) {
 		return
 	}
 
+
+	// 注册vue组件代码
 	c := NewCompiler()
 
 	var vs []VueFile
-
 	for _, v := range vueFiles {
 		_, fileName := filepath.Split(v)
-		name := componentName(strings.Split(fileName, ".")[0])
+		name := componentName(strings.TrimSuffix(fileName, ".vue"))
 
 		vs = append(vs, VueFile{
 			ComponentName: name,
 			Path:          v,
 			Filename:      fileName,
 		})
+
+		c.AddComponent(name)
 	}
 
 	_, pkgName := filepath.Split(desc)
 
-	// 注册vue组件代码
-	code := genNew(c, pkgName)
+
+
+	code := genNew(c.Components, pkgName)
 	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"new.go", []byte(code), 0666)
 	if err != nil {
 		return
 	}
 
-	// 生成vue组件
-	for _, v := range vueFiles {
-		// text.vue
-		_, fileName := filepath.Split(v)
-		name := strings.Split(fileName, ".")[0]
-		code := genComponentRenderFunc(c, pkgName, sheXing2TuoFeng(name), v)
-		var codeBs []byte
-		codeBs, err = format.Source([]byte(code))
+	willDelOld := oldVs
+
+	// 生成vue组件代码
+	for _, v := range vs {
+		newCodeStr := genComponentRenderFunc(c, pkgName, v.ComponentName, v.Path)
+		var newCode []byte
+		newCode, err = format.Source([]byte(newCodeStr))
 		if err != nil {
 			return
 		}
 
-		if oldCompMap[]
+		// 对比老代码, 如果新老代码一样则不动作, 否则删除掉老代码, 新写代码
+		codePath := desc + string(os.PathSeparator) + v.ComponentName + ".vue.go"
 
-		ioutil.ReadFile()
+		if _, ok := oldVs[v.ComponentName]; ok {
+			// 如果有新代码则不删除老代码, 要么覆盖, 要么不动(新老代码一样)
+			delete(willDelOld, v.ComponentName)
+			oldCode, err := ioutil.ReadFile(codePath)
+			if err != nil {
+				if !os.IsNotExist(err){
+					return errors.NewCoder(err, "read oldCode file")
+				}
+			}
 
-		err = ioutil.WriteFile(desc+string(os.PathSeparator)+name+".vue.go", codeBs, 0666)
+			if bytes.Equal(oldCode, newCode) {
+				continue
+			}
+
+			err = ioutil.WriteFile(codePath, newCode, 0666)
+			if err != nil {
+				return errors.NewCoder(err, "write oldCode file")
+			}
+		} else {
+			err = ioutil.WriteFile(codePath, newCode, 0666)
+			if err != nil {
+				return errors.NewCoder(err, "write oldCode file")
+			}
+		}
+	}
+
+	// 删除应该删除的老文件
+	for _, v := range willDelOld {
+		err = os.Remove(v.Path)
 		if err != nil {
+			err = errors.NewCoder(err, fmt.Sprintf("del oldCode file :%s", v.Path))
 			return
 		}
 	}
@@ -210,7 +248,7 @@ const buildInCode = `
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/net/html"
+	"html"
 	"sort"
 	"strings"
 )
@@ -540,7 +578,7 @@ func getStyleFromProps(styleProps interface{}) map[string]string {
 	}
 	st := map[string]string{}
 	for k, v := range pm {
-		st[k] = fmt.Sprintf("%v", v)
+		st[k] = escape(fmt.Sprintf("%v", v))
 	}
 	return st
 }
@@ -550,11 +588,12 @@ func getClassFromProps(classProps interface{}) []string {
 	if classProps == nil {
 		return nil
 	}
+	var cs []string
 	switch t := classProps.(type) {
 	case []string:
-		return t
+		cs = t
 	case string:
-		return []string{t}
+		cs = []string{t}
 	case map[string]interface{}:
 		var c []string
 		for k, v := range t {
@@ -562,7 +601,7 @@ func getClassFromProps(classProps interface{}) []string {
 				c = append(c, k)
 			}
 		}
-		return c
+		cs = c
 	case []interface{}:
 		var c []string
 		for _, v := range t {
@@ -570,7 +609,11 @@ func getClassFromProps(classProps interface{}) []string {
 			c = append(c, cc...)
 		}
 
-		return c
+		cs = c
+	}
+
+	for i := range cs {
+		cs [i] = escape(cs[i])
 	}
 
 	return nil
