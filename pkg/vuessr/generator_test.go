@@ -7,7 +7,7 @@ import (
 
 func TestGenAllFile(t *testing.T) {
 	//err := GenAllFile(`/Users/bysir/go/src/github.com/bysir-zl/go-vue-ssr/example/base`, `/Users/bysir/go/src/github.com/bysir-zl/go-vue-ssr/internal/vuetpl`)
-	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base`, `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\vuetpl`)
+	err := GenAllFile(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base`, `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\vuetpl`,"vuetpl")
 	if err != nil {
 		t.Fatal(err)
 	}
