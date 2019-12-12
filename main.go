@@ -8,21 +8,24 @@ import (
 
 func main() {
 	c := cli.NewApp()
-	c.Name = "vuessr"
+	c.Name = "go-vue-ssr"
+	c.Description = "Hey vue go"
+	c.Version = "0.0.1"
+	c.Usage = "Vue to Go compiler"
+
 	c.Flags = []cli.Flag{
 		&cli.StringFlag{
 			Name:  "src",
-			Usage: "the .vue file dir",
+			Usage: "The .vue files dir",
 		},
 		&cli.StringFlag{
 			Name:  "to",
 			Value: "./internal/vuetpl",
-			Usage: "genera code dir (default is ./internal/vuetpl)",
+			Usage: "Dist dir",
 		},
 		&cli.StringFlag{
 			Name:  "pkg",
-			Value: "vuetpl",
-			Usage: "pkg name (default is the dirname of `to` param)",
+			Usage: "pkg name",
 		},
 	}
 

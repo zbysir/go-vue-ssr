@@ -1,8 +1,8 @@
-# vue-ssr
-vue server side render but golang
+# Go-vue-ssr
+Vue server side render but golang. https://bysir-zl.github.io/go-vue-ssr
 
 Hey vue go
-## cause
+## Cause
 服务端渲染相较于前端渲染有以下好处:
 - 利于内容型网站的SEO.
 - 在性能更差的手机端浏览体验更佳.
@@ -29,51 +29,16 @@ Hey vue go
 
 这就是这个项目诞生的原因.
 
-它将尽力的保留vue的特性, 如组件化, [Custom Directives](https://vuejs.org/v2/guide/custom-directive.html), [Class and Style Bindings](https://vuejs.org/v2/guide/class-and-style.html), 相信这些现代特性对于编写html代码是有利的.
+它将尽力保留vue的特性, 如组件化, [Custom Directives](https://vuejs.org/v2/guide/custom-directive.html), [Class and Style Bindings](https://vuejs.org/v2/guide/class-and-style.html), 相信这些现代特性对于编写html代码是有利的.
 
-## who need go-vue-ssr
+## Who need Go-vue-ssr
 项目的目的是高效渲染+优雅的模板语法, 并没有实现vue的js部分的特性,
 所以它更适用于如官网/活动页等功能不强的页面, 而不适用于如后台管理系统这样功能性强的系统.
 
-## feature
+## Feature
 基于字符串拼接 而不是 虚拟节点来渲染vue组件, 当然这样做有好有坏.
 
 好处就是性能至少能提升1个数量级, 坏处就是舍去虚拟节点也就无法实现vue的数据绑定特性.
-## usage
-
-### step 1: install
-```
-go get github.com/bysir-zl/go-vue-ssr
-```
-### step 2: genera
-```
-go-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl -pkg=vuetpl
-```
-此命令将在./internal/vuetpl里生成go代码
-
-所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包, 
-
-不过在github.com/bysir-zl/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
-```
-a:= map[string]interface{}{
-    "info": map[string]interface{}{
-        "name": "bysir",
-    },
-}
-
-// 使用LookInterface方法可以方便的得到a.info.name的值.
-ssrtool.LookInterface(a, "info.name")
-```
-
-> 更多信息请查看完整文档: [编译](docs/genera.md)
-
-### step3: run
-生成的代码可以直接运行返回html.
-
-```go
-r := vuetpl.NewRender()
-html = r.XComponent_helloworld()
-```
 
 ## example
 > 完整代码[在这](https://github.com/bysir-zl/go-vue-ssr/tree/master/example/helloworld)
@@ -107,35 +72,77 @@ func main()  {
 }
 ```
 
-## vue features
-**support**
-- v-if v-else v-else-if
-- v-for
-- v-bind (support shorthands)
-- dynamically style
-- dynamically class
-- v-slot
-- slot scope
-- component
-- expression by AST
+## Usage
+
+### step 1: install
+```
+go get github.com/bysir-zl/go-vue-ssr
+```
+### step 2: genera
+```
+go-vue-ssr -src=./exaple/helloworld -to=./internal/vuetpl -pkg=vuetpl -pkg=vuetpl
+```
+此命令将在./internal/vuetpl里生成go代码
+
+所有运行渲染所需要的代码都会保存在vuetpl包里, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包, 
+
+不过在github.com/bysir-zl/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+```
+a:= map[string]interface{}{
+    "info": map[string]interface{}{
+        "name": "bysir",
+    },
+}
+
+// 使用LookInterface方法可以方便的得到a.info.name的值.
+ssrtool.LookInterface(a, "info.name")
+```
+
+> 更多细节请查看文档: [编译](docs/genera.md)
+
+### step3: run
+生成的代码可以直接运行返回html.
+
+```go
+r := vuetpl.NewRender()
+html = r.Component_helloworld()
+```
+
+## Supported Vue Template Syntax
+- [Text](https://vuejs.org/v2/guide/syntax.html#Text)
+  - mustache syntax (double curly braces)
+  - v-text (use html.escape)
+- [Raw Html](https://vuejs.org/v2/guide/syntax.html#Raw-HTML)
+  - v-html
+- [Attributes](https://vuejs.org/v2/guide/syntax.html#Attributes)
+  - v-bind (support shorthands)
+- [Arguments](https://vuejs.org/v2/guide/syntax.html#Attributes)
+  - v-bind (support shorthands)
+- [Custom Directives](https://vuejs.org/v2/guide/custom-directive.html)
+  - emm it's different with vue's custom Directives, see [Tips-CustomDirectives](docs/tips.md#CustomDirectives)
+- Class and Style Bindings
+  - [Object-Syntax](https://vuejs.org/v2/guide/class-and-style.html#Object-Syntax)
+  - [Array Syntax](https://vuejs.org/v2/guide/class-and-style.html#Array-Syntax)
+  - [With-Components](https://vuejs.org/v2/guide/class-and-style.html#With-Components)
+- [Conditional Rendering](https://vuejs.org/v2/guide/conditional.html)
+  - v-if
+  - v-else-if
+  - v-else
+- [List Rendering](https://vuejs.org/v2/guide/list.html)
+  - v-for (only on Array, not support Object/Range)
+- [Slots](https://vuejs.org/v2/guide/components-slots.html)
+  - [Compilation Scope](https://vuejs.org/v2/guide/components-slots.html#Compilation-Scope)
+  - [Fallback Content](https://vuejs.org/v2/guide/components-slots.html#Fallback-Content)
+  - [Named Slots](https://vuejs.org/v2/guide/components-slots.html#Named-Slots)
+  - [Scoped Slots](https://vuejs.org/v2/guide/components-slots.html#Scoped-Slots)
+- [Dynamic Components](https://vuejs.org/v2/guide/components-dynamic-async.html)
+
+- Using JavaScript Expressions (by AST)
   - `+ && || !`
-  - `function call`
+  - `function call` e.g. {{calcHeight(srcHeight)}}
   - `.length`
-- function call: eg. {{calcHeight(srcHeight)}}
-- directive
-- v-html (use html.escape)
-- v-text
-
-**not support**
-- v-on
-- v-show
-- filter: please use function instead of it, e.g. {{calcHeight(srcHeight)}}
-- inject / provider
-- v-once
-
-**other**
-- prototype: 放在Prototype里的变量可以在任何组件中使用, 如调用全局的方法.
+  - `'list-' + id`
 
 ------
 
-**下一篇: [编译](docs/genera.md)**
+**完整文档请看 [https://bysir-zl.github.io/go-vue-ssr](https://bysir-zl.github.io/go-vue-ssr)**
