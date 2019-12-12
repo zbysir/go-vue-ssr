@@ -616,7 +616,7 @@ func getClassFromProps(classProps interface{}) []string {
 		cs [i] = escape(cs[i])
 	}
 
-	return nil
+	return cs
 }
 
 func lookInterface(data interface{}, key string) (desc interface{}) {
