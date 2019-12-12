@@ -134,7 +134,6 @@ func GenAllFile(src, desc string) (err error) {
 		return
 	}
 
-
 	// 注册vue组件代码
 	c := NewCompiler()
 
@@ -153,8 +152,6 @@ func GenAllFile(src, desc string) (err error) {
 	}
 
 	_, pkgName := filepath.Split(desc)
-
-
 
 	code := genNew(c.Components, pkgName)
 	err = ioutil.WriteFile(desc+string(os.PathSeparator)+"new.go", []byte(code), 0666)
@@ -181,7 +178,7 @@ func GenAllFile(src, desc string) (err error) {
 			delete(willDelOld, v.ComponentName)
 			oldCode, err := ioutil.ReadFile(codePath)
 			if err != nil {
-				if !os.IsNotExist(err){
+				if !os.IsNotExist(err) {
 					return errors.NewCoder(err, "read oldCode file")
 				}
 			}
