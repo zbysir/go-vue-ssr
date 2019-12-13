@@ -124,7 +124,7 @@ func main()  {
 - [Arguments](https://vuejs.org/v2/guide/syntax.html#Attributes)
   - v-bind (support shorthands)
 - [Custom Directives](https://vuejs.org/v2/guide/custom-directive.html)
-  - emm it's different with vue's custom Directives, see [Tips-CustomDirectives](docs/tips.md#CustomDirectives)
+  - emm it's different with vue's custom Directives, see [Tips-CustomDirectives](docs/tips.md#customdirectives)
 - Class and Style Bindings
   - [Object-Syntax](https://vuejs.org/v2/guide/class-and-style.html#Object-Syntax)
   - [Array Syntax](https://vuejs.org/v2/guide/class-and-style.html#Array-Syntax)
@@ -144,7 +144,7 @@ func main()  {
 
 - Using JavaScript Expressions (by AST)
   - `+ && || !`
-  - `function call` e.g. \{\{calcHeight(srcHeight)}} 使用方法见 [Tips-Prototype](tips.md#Prototype)
+  - `function call` e.g. \{\{calcHeight(srcHeight)}} 使用方法见 [Tips-Prototype](tips.md#prototype)
   - `.length`
   - `'list-' + id`
 **not support**
@@ -155,7 +155,7 @@ func main()  {
 - v-once
 
 **other**
-- prototype: 放在Prototype里的变量可以在任何组件中使用, 如调用全局的方法. 使用方法见 [Tips-Prototype](tips.md#Prototype)
+- prototype: 放在Prototype里的变量可以在任何组件中使用, 如调用全局的方法. 使用方法见 [Tips-Prototype](tips.md#prototype)
 
 ------
 
