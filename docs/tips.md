@@ -5,9 +5,25 @@
 - 有趣的例子
 
 ## Component
-所有参与编译的vue文件都会被注册为组件. 组件名字就是文件名.
+所有参与编译的vue文件都会被注册为组件, 组件名字就是文件名, 故不要取重复的文件名.
 
 文件名的kebab-case写法与PascalCase写法是一样的, 同时 <my-component-name> 和 <MyComponentName>都能正常使用.
+
+和vue组件不同的是, Go-vue-ssr为了简化逻辑, html页面也被当成了组件, 如下模板也是能够正常被渲染的.
+```vue
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>{{title}}</title>
+</head>
+<body>
+  <h1 v-html="title" style="text-align: center; margin-top: 100px"></h1>
+</body>
+</html>
+```
+
+不过对于不满足Vue组件规范的组件就不会有Class/Style的组件特性: [Class and Style Bindings#With-Components](https://vuejs.org/v2/guide/class-and-style.html#With-Components)
 
 ## Props
 由于不支持像Vue一样声明props, 所以所有v-bind写法都会被传递到组件内部. 

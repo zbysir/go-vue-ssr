@@ -2,7 +2,7 @@ package main
 
 import "log"
 
-// exec `go-vue-ssr -src=./vue -to=./ -pkg=main` before run main func
+// exec `go-vue-ssr -src=./vue -to=./ -pkg=main` before run main
 func main() {
 	r := NewRender()
 	htmlStr := r.Component_page(&Options{

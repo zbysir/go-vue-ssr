@@ -4,9 +4,61 @@
 
 其一和nuxt一样 基于vue官方提供的vuessr虚拟节点的渲染方式, 它支持vue的全特性, 但性能仅能满足不太复杂的网站.
 
-其二就是将vue再编译成更高效的代码运行 也就是传统的基于字符串拼接的模板渲染方式, 这种方式能有效避免节点太多所造成的包括递归/动态等性能问题.
+其二就是将vue再编译成更高效的代码运行 也就是传统的基于字符串拼接的模板渲染方式, 这种方式能有效避免节点太多所造成的递归/动态等性能问题.
 
 项目的目标就是高效渲染+优雅的模板语法, 故使用上述第二个方法.
+
+## go-vue-ssr命令
+使用go-vue-ssr命令可以生成代码
+```
+go-vue-ssr -src=./exaple/helloworld -to=./ -pkg=./ -pkg=vuetpl
+```
+
+#### 命令说明
+```
+$ go-vue-ssr -h
+
+NAME:
+   go-vue-ssr - Vue to Go compiler
+
+USAGE:
+   go-vue-ssr [global options] command [command options] [arguments...]
+
+VERSION:
+   0.0.1
+
+DESCRIPTION:
+   Hey vue go
+
+COMMANDS:
+     help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --src value    The .vue files dir
+   --to value     Dist dir (default: "./internal/vuetpl")
+   --pkg value    pkg name
+   --help, -h     show help
+   --version, -v  print the version
+```
+**参数**
+
+- src: 存放vue文件的文件夹, 支持查找子目录, 但不允许重复的文件名(因为文件名会当做组件名).
+- to: 存放生成代码的目录
+- pkg: go package name
+
+此命令将在当前目录下生成所有需要的Go代码, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包.
+
+不过在github.com/bysir-zl/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+```
+a:= map[string]interface{}{
+    "info": map[string]interface{}{
+        "name": "bysir",
+    },
+}
+
+// 使用LookInterface方法可以方便的得到a.info.name的值.
+rinterface.GetStr(a, "info.name")
+```
 
 ## 编译原理
 
