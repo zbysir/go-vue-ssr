@@ -88,7 +88,7 @@ func ToSlice(s interface{}) (d []interface{}) {
 }
 
 // 字符串false,0 会被认定为false
-func InterfaceToBool(s interface{}) (d bool) {
+func ToBool(s interface{}) (d bool) {
 	if s == nil {
 		return false
 	}
