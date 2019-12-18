@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr"
 	"github.com/urfave/cli"
 	"os"
@@ -46,6 +47,6 @@ func main() {
 
 	err := c.Run(os.Args)
 	if err != nil {
-		panic(err)
+		log.Errorf("%v",err)
 	}
 }
