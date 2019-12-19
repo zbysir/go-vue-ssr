@@ -69,6 +69,26 @@ func GetStr(bs []byte, key string) (desc string) {
 	return v
 }
 
+// 模糊获取字符串
+// Number/Boolean等类似会返回原始json
+func GetStrObscure(bs []byte, key string) (desc string) {
+	v, t, _, err := jsonparser.Get(bs, strings.Split(key, ".")...)
+	if err != nil {
+		return
+	}
+	switch t {
+	case jsonparser.Null, jsonparser.NotExist, jsonparser.Unknown:
+		return
+	case jsonparser.String:
+		desc, _ = jsonparser.ParseString(v)
+		return desc
+	case jsonparser.Number, jsonparser.Object, jsonparser.Array, jsonparser.Boolean:
+		return string(v)
+	}
+
+	return
+}
+
 func GetNumber(bs []byte, key string) (desc float64) {
 	v, err := jsonparser.GetFloat(bs, strings.Split(key, ".")...)
 	if err != nil {
