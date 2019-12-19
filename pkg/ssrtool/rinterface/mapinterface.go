@@ -53,6 +53,10 @@ func GetStr(data interface{}, key string, escaped ...bool) string {
 	return ToStr(Get(data, key), escaped...)
 }
 
+func GetBool(data interface{}, key string) bool {
+	return ToBool(Get(data, key))
+}
+
 func GetInt(data interface{}, key string) int64 {
 	return ToInt(Get(data, key))
 }

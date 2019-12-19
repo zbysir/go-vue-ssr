@@ -2,8 +2,8 @@ package vuessr
 
 import (
 	"fmt"
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/html"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/html/atom"
 	"os"
 	"strings"
 )
