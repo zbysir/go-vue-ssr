@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseVue(t *testing.T) {
-	e, err := ParseVue(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\directive.vue`)
+	e, err := ParseVue(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base\directive.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestParseVue(t *testing.T) {
 }
 
 func TestHtml(t *testing.T) {
-	e, err := parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\render_func\text.vue`)
+	e, err := parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base\text.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,8 +2,8 @@ package vuessr
 
 import (
 	"fmt"
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/html"
+	"github.com/bysir-zl/go-vue-ssr/internal/pkg/html/atom"
 	"os"
 	"strings"
 )
@@ -341,6 +341,8 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 						itemKey = strings.Trim(ss[0], " ")
 						indexKey = strings.Trim(ss[1], " ")
 					} else {
+						// (item) or item
+						left = strings.Trim(left, "()")
 						itemKey = left
 						indexKey = "$index"
 					}

@@ -55,8 +55,9 @@ type ObjectExpression struct {
 
 // 对象的成员
 type Property struct {
-	Key   Node `json:"key"` // 一般都是Identifier
-	Value Node `json:"value"`
+	Key      Node `json:"key"` // 一般都是Identifier
+	Value    Node `json:"value"`
+	Computed bool `json:"computed"`
 }
 
 // a.b.c这样的读取成员变量表达式
@@ -67,6 +68,10 @@ type MemberExpression struct {
 }
 
 func (p Property) GetKey() string {
+	if p.Computed{
+		panic("Computed不能使用GetKey方法")
+	}
+
 	key := ""
 	switch t := p.Key.Assert().(type) {
 	case Identifier:
@@ -74,7 +79,7 @@ func (p Property) GetKey() string {
 	case Literal:
 		key = t.Value.(string)
 	default:
-		panic(t)
+		log.Panicf("%v, %v", t, p)
 	}
 
 	return key

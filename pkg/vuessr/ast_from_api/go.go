@@ -54,12 +54,21 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		right := genGoCodeByNode(t.Right, dataKey)
 		o := t.Operator
 		switch o {
-		case "===":
-			o = "=="
-		case "!==":
-			o = "!="
+		case "===", "==":
+			return fmt.Sprintf(`interfaceToStr(%s) == interfaceToStr(%s)`, left, right)
+		case "!==", "!=":
+			return fmt.Sprintf(`interfaceToStr(%s) != interfaceToStr(%s)`, left, right)
+		case "+":
+			return fmt.Sprintf(`interfaceToStr(%s) + interfaceToStr(%s)`, left, right)
+		case "-":
+			return fmt.Sprintf(`interfaceToFloat(%s) - interfaceToFloat(%s)`, left, right)
+		case "*":
+			return fmt.Sprintf(`interfaceToFloat(%s) * interfaceToFloat(%s)`, left, right)
+		case "/":
+			return fmt.Sprintf(`interfaceToFloat(%s) / interfaceToFloat(%s)`, left, right)
 		}
 
+		// 可以优化: interfaceToStr("1") 为 "1"
 		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, o, right)
 	case UnaryExpression:
 		arg := genGoCodeByNode(t.Argument, dataKey)
@@ -74,12 +83,16 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		mapCode += "{"
 		for _, v := range t.Properties {
 			p := v.Assert().(Property)
-			k := p.GetKey()
+			k := ""
+			if p.Computed {
+				k = genGoCodeByNode(p.Key, dataKey)
+			} else {
+				k = fmt.Sprintf(`"%s"`, p.GetKey())
+			}
 			valueCode := genGoCodeByNode(p.Value, dataKey)
-			mapCode += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+			mapCode += fmt.Sprintf(`%s: %s,`, k, valueCode)
 		}
 		mapCode += "}"
-
 		return mapCode
 	case CallExpression:
 		name := t.GetFuncName()
