@@ -7,9 +7,9 @@ package html
 import (
 	"errors"
 	"fmt"
+	a "github.com/bysir-zl/go-vue-ssr/internal/pkg/html/atom"
 	"io"
 	"strings"
-	a "github.com/bysir-zl/go-vue-ssr/internal/pkg/html/atom"
 )
 
 // A parser implements the HTML5 parsing algorithm:

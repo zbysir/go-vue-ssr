@@ -1,4 +1,7 @@
 # Go-vue-ssr
+[![GoDoc](https://godoc.org/github.com/bysir-zl/go-vue-ssr?status.svg)](https://godoc.org/github.com/bysir-zl/go-vue-ssr)
+[![Go ReportCard](https://goreportcard.com/badge/github.com/bysir-zl/go-vue-ssr)](https://goreportcard.com/report/github.com/bysir-zl/go-vue-ssr)
+
 Vue server side render but golang. https://bysir-zl.github.io/go-vue-ssr
 
 Hey vue go

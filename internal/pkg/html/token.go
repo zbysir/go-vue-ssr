@@ -11,7 +11,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-
 )
 
 // A TokenType is the type of a Token.

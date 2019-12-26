@@ -68,7 +68,7 @@ type MemberExpression struct {
 }
 
 func (p Property) GetKey() string {
-	if p.Computed{
+	if p.Computed {
 		panic("Computed不能使用GetKey方法")
 	}
 
