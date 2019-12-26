@@ -96,7 +96,7 @@ func TestAttr(t *testing.T) {
 	r := vuetpl.NewRender()
 	r.Prototype = map[string]interface{}{
 		"img": func(args ...interface{}) interface{} {
-			return fmt.Sprintf("%s?100", args[0], )
+			return fmt.Sprintf("%s?100", args[0])
 		},
 	}
 

@@ -47,6 +47,6 @@ func main() {
 
 	err := c.Run(os.Args)
 	if err != nil {
-		log.Errorf("%v",err)
+		log.Errorf("%v", err)
 	}
 }

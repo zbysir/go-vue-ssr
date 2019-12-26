@@ -75,15 +75,15 @@ type LogicalExpression struct {
 
 type Parser struct {
 	code []rune
-	pos int
+	pos  int
 }
 
-func (p *Parser) getWord() (word string, l int){
+func (p *Parser) getWord() (word string, l int) {
 	for {
-		if p.pos>=len(p.code){
+		if p.pos >= len(p.code) {
 			break
 		}
-		curr:=p.code[p.pos]
+		curr := p.code[p.pos]
 		// ttodo
 	}
 	return

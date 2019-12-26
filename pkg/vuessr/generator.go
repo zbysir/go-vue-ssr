@@ -175,7 +175,7 @@ func GenAllFile(src, desc string, pkg string) (err error) {
 		newCodeFormat, e := format.Source(newCode)
 		if e != nil {
 			log.Errorf("format.Source err:%+v, src:%s", e, newCodeStr)
-		}else{
+		} else {
 			newCode = newCodeFormat
 		}
 
