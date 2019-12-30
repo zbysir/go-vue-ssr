@@ -28,12 +28,23 @@ type VueElement struct {
 	VElseIf          bool
 	VHtml            string
 	VText            string
+	VOn              []VOnDirective // v-on与普通自定义指令不同，其中表达式不会去调用方法，而是存储调用的方法和args然后生成js代码
 }
 
 type Directive struct {
 	Name  string // v-animate
 	Value string // {'a': 1}
 	Arg   string // v-set:arg
+}
+
+// v-on:click="buttonClick(args1, args2)" // 方法（参数） 支持：在这种类型上，所有的参数都是读取props值。
+// v-on:click="function(){a=a+1}" // js方法 不支持：表达式中没办法准确的识别变量是模板传递的还是js中的。
+//  如a+1中我们无法得知a到底是读取props(翻译成go代码)还是使用全局的js变量（不翻译）。
+// v-on:click="a=a+1" // 表达式 不支持：同上
+type VOnDirective struct {
+	Func string // buttonClick
+	Args string // args1, args2, 将被翻译成go。
+	Arg  string // click
 }
 
 type ElseIf struct {
@@ -288,6 +299,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 	for i, e := range es {
 		props := map[string]string{}
 		var ds []Directive
+		var vOn []VOnDirective
 		var class []string
 		style := map[string]string{}
 		var styleKeys []string
@@ -315,8 +327,25 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			}
 
 			if nameSpace == "v-bind" || nameSpace == "" {
-				// v-bind & shorthands
+				// v-bind & shorthands :
 				props[key] = attr.Val
+			} else if strings.HasPrefix(oriKey, "@") && nameSpace == "v-on" {
+				// v-on & shorthands @
+				end := strings.LastIndex(attr.Val, ")")
+				start := strings.Index(attr.Val, "(")
+				if end != -1 && start != -1 {
+					args := attr.Val[start+1 : end-1]
+					fun := attr.Val[:start]
+
+					event := key
+					event = strings.TrimPrefix(event, "@")
+
+					vOn = append(vOn, VOnDirective{
+						Func: fun,
+						Args: args,
+						Arg:  event,
+					})
+				}
 			} else if strings.HasPrefix(oriKey, "v-") {
 				// 指令
 				// v-if=""

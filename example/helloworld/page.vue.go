@@ -10,5 +10,8 @@ func (r *Render) Component_page(options *Options) string {
 		StyleKeys: []string{"padding"},
 		Slot:      map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
 		P:         options,
+	}) + r.Component_vOn(&Options{Props: map[string]interface{}{"msg": "hello event"},
+		Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
+		P:    options,
 	}) + "</body></html>"
 }

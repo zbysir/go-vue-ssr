@@ -137,6 +137,9 @@ r.Prototype = map[string]interface{}{
 </template>
 ```
 
+## v-on
+这个指令是运行时指令，大体功能和上面说的v-set自定义指令类似，都是存储数据，唯一不同的是v-on指令会自动生成一个event-id在dom上，用于事件与dom的绑定。
+
 ------
 
 **下一篇: [编译](genera.md)**

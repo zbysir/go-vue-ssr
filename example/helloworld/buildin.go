@@ -13,11 +13,21 @@ import (
 type Render struct {
 	// 模拟原型链, 每个组件中都可以直接读取到这个对象中的值. 如果和组件上层传递的props冲突, 则上层传递的props优先.
 	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
-	Prototype map[string]interface{}
+	Prototype Prototype
 	// 注册的动态组件
 	components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
+}
+
+type Prototype map[string]interface{}
+
+func (p Prototype) Func(name string, f Function) {
+	p[name] = f
+}
+
+func (p Prototype) Var(name string, v interface{}) {
+	p[name] = v
 }
 
 // for {{func(a)}}
@@ -444,6 +454,26 @@ func interfaceToBool(s interface{}) (d bool) {
 	}
 
 	return
+}
+
+func interfaceToFloat(s interface{}) (d float64) {
+	if s == nil {
+		return 0
+	}
+	switch a := s.(type) {
+	case int:
+		return float64(a)
+	case int32:
+		return float64(a)
+	case int64:
+		return float64(a)
+	case float64:
+		return d
+	case float32:
+		return d
+	default:
+		return 0
+	}
 }
 
 // 用于{{func(a)}}语法
