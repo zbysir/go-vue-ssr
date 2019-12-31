@@ -22,7 +22,7 @@ type Render struct {
 	directives map[string]DirectivesFunc
 	
 	VOnBinds []vOnBind
-	VOnDomId int
+	vOnDomId int
 	//ctx map[string]interface{} // 存储数据
 }
 
@@ -120,8 +120,8 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 	// 生成唯一id 并存放在dom上
 	// 存储数据
 	if len(options.VonDirectives) != 0 {
-		r.VOnDomId++
-		dom := fmt.Sprintf("%d", r.VOnDomId)
+		r.vOnDomId++
+		dom := fmt.Sprintf("%d", r.vOnDomId)
 		for _, d := range options.VonDirectives {
 			r.VOnBinds = append(r.VOnBinds, vOnBind{
 				Func:        d.Func,
@@ -163,7 +163,7 @@ type Options struct {
 	Class     []string                 // 本节点静态class
 	Style     map[string]string        // 本节点静态style
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]namedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Slot      map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
 	// - 读取上层传递的PropsClass, 作用在root tag
@@ -212,7 +212,7 @@ type ComponentFunc func(options *Options) string
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type namedSlotFunc func(props map[string]interface{}) string
+type NamedSlotFunc func(props map[string]interface{}) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
@@ -513,13 +513,50 @@ func interfaceToFloat(s interface{}) (d float64) {
 	case int64:
 		return float64(a)
 	case float64:
-		return d
+		return a
 	case float32:
-		return d
+		return float64(a)
 	default:
 		return 0
 	}
 }
+
+// 用来模拟js两个变量相加
+// 如果两个变量都是number, 则相加后也是number
+// 只有有一个不是number, 则都按字符串处理相加
+func interfaceAdd(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) + interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) + interfaceToStr(b)
+	}
+
+	return an + bn
+}
+
+func isNumber(s interface{}) (d float64, is bool) {
+	if s == nil {
+		return 0, false
+	}
+	switch a := s.(type) {
+	case int:
+		return float64(a), true
+	case int32:
+		return float64(a), true
+	case int64:
+		return float64(a), true
+	case float64:
+		return a, true
+	case float32:
+		return float64(a), true
+	default:
+		return 0, false
+	}
+}
+
 
 // 用于{{func(a)}}语法
 func interfaceToFunc(s interface{}) (d Function) {

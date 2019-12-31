@@ -6,7 +6,7 @@
 </head>
 <body>
   <h1 v-html="title" style="text-align: center; margin-top: 100px"></h1>
-  <info :name="title" :slogan="slogan" :logo="logo" style="padding: 20px"></info>
+  <info :name="title" :slogan="slogan" :logo="logo" style="padding: 20px" :height="height+1"></info>
   <v-on :msg="'hello event'"></v-on>
 
 <script v-on-handler></script>

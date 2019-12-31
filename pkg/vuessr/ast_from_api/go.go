@@ -60,7 +60,8 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		case "!==", "!=":
 			return fmt.Sprintf(`interfaceToStr(%s) != interfaceToStr(%s)`, left, right)
 		case "+":
-			return fmt.Sprintf(`interfaceToStr(%s) + interfaceToStr(%s)`, left, right)
+			// 如果两边是
+			return fmt.Sprintf(`interfaceAdd(%s, %s)`, left, right)
 		case "-":
 			return fmt.Sprintf(`interfaceToFloat(%s) - interfaceToFloat(%s)`, left, right)
 		case "*":

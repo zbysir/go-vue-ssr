@@ -791,13 +791,50 @@ func interfaceToFloat(s interface{}) (d float64) {
 	case int64:
 		return float64(a)
 	case float64:
-		return d
+		return a
 	case float32:
-		return d
+		return float64(a)
 	default:
 		return 0
 	}
 }
+
+// 用来模拟js两个变量相加
+// 如果两个变量都是number, 则相加后也是number
+// 只有有一个不是number, 则都按字符串处理相加
+func interfaceAdd(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) + interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) + interfaceToStr(b)
+	}
+
+	return an + bn
+}
+
+func isNumber(s interface{}) (d float64, is bool) {
+	if s == nil {
+		return 0, false
+	}
+	switch a := s.(type) {
+	case int:
+		return float64(a), true
+	case int32:
+		return float64(a), true
+	case int64:
+		return float64(a), true
+	case float64:
+		return a, true
+	case float32:
+		return float64(a), true
+	default:
+		return 0, false
+	}
+}
+
 
 // 用于{{func(a)}}语法
 func interfaceToFunc(s interface{}) (d Function) {

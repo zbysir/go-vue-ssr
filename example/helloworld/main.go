@@ -6,12 +6,13 @@ import (
 	"log"
 )
 
+// cd example/helloworld
 // exec `go-vue-ssr -src=./vue -to=./ -pkg=main` before run main
 func main() {
 	r := NewRender()
 	// 此指令获取渲染过程中所有v-on指令数据, 用来添加事件.
 	r.Directive("v-on-handler", func(b DirectivesBinding, options *Options) {
-		options.Slot = map[string]namedSlotFunc{"default": func(props map[string]interface{}) string {
+		options.Slot = map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string {
 			bs, _ := json.Marshal(r.VOnBinds)
 			return fmt.Sprintf("var vOnBinds = %s; for (var i in vOnBinds){var item = vOnBinds[i]; document.querySelector('[data-von-'+item.DomSelector+']').addEventListener(item.Event, function() {window[item.Func].call(window, ...item.Args)})}", bs)
 		}}
@@ -21,6 +22,7 @@ func main() {
 			"title":  "go-vue-ssr",
 			"slogan": "Hey vue go",
 			"logo":   "https://avatars2.githubusercontent.com/u/13434040?s=88&v=4",
+			"height": 100.1,
 		},
 	})
 
