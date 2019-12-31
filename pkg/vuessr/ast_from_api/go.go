@@ -87,7 +87,7 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 			p := v.Assert().(Property)
 			k := ""
 			if p.Computed {
-				k = genGoCodeByNode(p.Key, dataKey)
+				k = fmt.Sprintf("interfaceToStr(%s)", genGoCodeByNode(p.Key, dataKey))
 			} else {
 				k = fmt.Sprintf(`"%s"`, p.GetKey())
 			}
