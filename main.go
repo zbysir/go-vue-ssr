@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
+	"github.com/bysir-zl/go-vue-ssr/internal/version"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr"
 	"github.com/urfave/cli"
 	"os"
@@ -11,7 +12,7 @@ func main() {
 	c := cli.NewApp()
 	c.Name = "go-vue-ssr"
 	c.Description = "Hey vue go"
-	c.Version = "0.0.1"
+	c.Version = version.Version
 	c.Usage = "Vue to Go compiler"
 
 	c.Flags = []cli.Flag{
