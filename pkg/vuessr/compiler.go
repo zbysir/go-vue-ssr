@@ -27,6 +27,7 @@ type OptionsGen struct {
 	DefaultSlotCode string            // 子节点code, 用于默认的插槽
 	NamedSlotCode   map[string]string // 具名插槽
 	Directives      []Directive       // 指令代码
+	VOn             []VOnDirective    // v-on指令
 }
 
 func sliceStringToGoCode(m []string) string {
@@ -114,6 +115,7 @@ func mapJsCodeToCode(m map[string]string) string {
 	return props
 }
 
+// 生成Options代码
 func (o *OptionsGen) ToGoCode() string {
 	c := "&Options{"
 
@@ -187,6 +189,24 @@ func (o *OptionsGen) ToGoCode() string {
 		c += fmt.Sprintf("Directives: %s,\n", dir)
 	}
 
+	if len(o.VOn) != 0 {
+		on := "[]vonDirective{\n"
+		for _, v := range o.VOn {
+			// 方法:
+			funcName := v.Func
+			// 参数:
+			args, err := ast_from_api.Js2Go("["+v.Args+"]", DataKey)
+			if err != nil {
+				panic(err)
+			}
+
+			on += fmt.Sprintf("{Func: \"%s\", Args: %s, Event: \"%s\"}", funcName, args, v.Event)
+		}
+
+		on += "}"
+		c += fmt.Sprintf("VonDirectives: %s,\n", on)
+	}
+
 	c += "}"
 	return c
 }
@@ -248,6 +268,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			DefaultSlotCode: defaultSlotCode,
 			NamedSlotCode:   namedSlotCode,
 			Directives:      e.Directives,
+			VOn:             e.VOn,
 		}
 		optionsCode := options.ToGoCode()
 		eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
@@ -269,7 +290,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
 
 		// 动态节点
-		if e.IsRoot || len(e.Directives) != 0 {
+		if e.IsRoot || len(e.Directives) != 0 || len(e.VOn) != 0 {
 			options := OptionsGen{
 				Props:           e.Props,
 				Attrs:           e.Attrs,
@@ -280,6 +301,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				DefaultSlotCode: defaultSlotCode,
 				NamedSlotCode:   namedSlotCode,
 				Directives:      e.Directives,
+				VOn:             e.VOn,
 			}
 
 			optionsCode := options.ToGoCode()

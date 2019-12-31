@@ -8,9 +8,12 @@ func (r *Render) Component_vOn(options *Options) string {
 	return r.Tag("div", true, &Options{Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string {
 		return r.Tag("button", false, &Options{Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "click me to alert msg" }},
 			P: options,
-			Directives: []directive{
-				{Name: "v-on", Value: interfaceToFunc(lookInterface(this, "buttonClick"))(lookInterface(this, "msg")), Arg: "click"},
-			},
+			VonDirectives: []vonDirective{
+				{Func: "buttonClick", Args: []interface{}{lookInterface(this, "msg")}, Event: "click"}},
+		}) + r.Tag("button", false, &Options{Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "click me to alert2 msg" }},
+			P: options,
+			VonDirectives: []vonDirective{
+				{Func: "buttonClick2", Args: []interface{}{lookInterface(this, "msg")}, Event: "click"}},
 		})
 	}},
 		P: options,

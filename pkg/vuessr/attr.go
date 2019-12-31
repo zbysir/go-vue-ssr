@@ -147,7 +147,11 @@ func genAttr(attr map[string]string, keys []string) string {
 	// 为了每次编译的代码都一样, style的顺序也应一样
 	for _, k := range keys {
 		v := attr[k]
-		c += fmt.Sprintf(`%s=\"%s\"`, k, v)
+		if v != "" {
+			c += fmt.Sprintf(`%s=\"%s\"`, k, v)
+		} else {
+			c += fmt.Sprintf(`%s`, k)
+		}
 	}
 	return c
 

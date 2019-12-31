@@ -2,6 +2,8 @@
 
 package main
 
+
+
 import (
 	"encoding/json"
 	"fmt"
@@ -18,6 +20,17 @@ type Render struct {
 	components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
+	
+	VOnBinds []vOnBind
+	VOnDomId int
+	//ctx map[string]interface{} // 存储数据
+}
+
+type vOnBind struct{
+	Func string
+	DomSelector string
+	Args []interface{}
+	Event string
 }
 
 type Prototype map[string]interface{}
@@ -103,7 +116,28 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 			}
 		}
 	}
+    // exec von
+	// 生成唯一id 并存放在dom上
+	// 存储数据
+	if len(options.VonDirectives) != 0 {
+		r.VOnDomId++
+		dom := fmt.Sprintf("%d", r.VOnDomId)
+		for _, d := range options.VonDirectives {
+			r.VOnBinds = append(r.VOnBinds, vOnBind{
+				Func:        d.Func,
+				DomSelector: dom,
+				Args:        d.Args,
+				Event:       d.Event,
+			},
+			)
+		}
+		if options.Attrs == nil {
+			options.Attrs = map[string]string{}
+		}
+		options.Attrs["data-von-"+dom] = ""
+	}
 
+   
 	var p *Options
 	if isRoot {
 		p = options.P
@@ -135,12 +169,19 @@ type Options struct {
 	// - 读取上层传递的PropsClass, 作用在root tag
 	P          *Options
 	Directives []directive // 指令值
+    VonDirectives []vonDirective
 }
 
 type directive struct {
 	Name  string
 	Value interface{}
 	Arg   string
+}
+
+type vonDirective struct {
+	Event string
+	Func string
+	Args []interface{}
 }
 
 type Props map[string]interface{}
@@ -331,7 +372,11 @@ func genAttr(attr map[string]string) string {
 	st := ""
 	for _, k := range sortedKeys {
 		v := attr[k]
-		st += fmt.Sprintf("%s=\"%s\" ", k, v)
+		if v != ""{
+			st += fmt.Sprintf("%s=\"%s\" ", k, v)
+		}else{
+			st += fmt.Sprintf("%s ", k)
+		}
 	}
 
 	st = strings.Trim(st, " ")

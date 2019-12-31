@@ -42,9 +42,10 @@ type Directive struct {
 //  如a+1中我们无法得知a到底是读取props(翻译成go代码)还是使用全局的js变量（不翻译）。
 // v-on:click="a=a+1" // 表达式 不支持：同上
 type VOnDirective struct {
-	Func string // buttonClick
-	Args string // args1, args2, 将被翻译成go。
-	Arg  string // click
+	Func  string // buttonClick
+	Args  string // args1, args2, 将被翻译成go。
+	Exp   string // 原始表达式: buttonClick(args1, args2)
+	Event string // click
 }
 
 type ElseIf struct {
@@ -329,21 +330,22 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			if nameSpace == "v-bind" || nameSpace == "" {
 				// v-bind & shorthands :
 				props[key] = attr.Val
-			} else if strings.HasPrefix(oriKey, "@") && nameSpace == "v-on" {
+			} else if strings.HasPrefix(oriKey, "@") || nameSpace == "v-on" {
 				// v-on & shorthands @
 				end := strings.LastIndex(attr.Val, ")")
 				start := strings.Index(attr.Val, "(")
 				if end != -1 && start != -1 {
-					args := attr.Val[start+1 : end-1]
+					args := attr.Val[start+1 : end]
 					fun := attr.Val[:start]
 
 					event := key
 					event = strings.TrimPrefix(event, "@")
 
 					vOn = append(vOn, VOnDirective{
-						Func: fun,
-						Args: args,
-						Arg:  event,
+						Func:  fun,
+						Args:  args,
+						Event: event,
+						Exp:   attr.Val,
 					})
 				}
 			} else if strings.HasPrefix(oriKey, "v-") {
@@ -479,6 +481,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			VElseIf:          vElseIf != nil,
 			VHtml:            vHtml,
 			VText:            vText,
+			VOn:              vOn,
 		}
 
 		// 记录vif, 接下来的elseif将与这个节点关联

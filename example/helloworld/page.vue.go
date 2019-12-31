@@ -13,5 +13,10 @@ func (r *Render) Component_page(options *Options) string {
 	}) + r.Component_vOn(&Options{Props: map[string]interface{}{"msg": "hello event"},
 		Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
 		P:    options,
-	}) + "</body></html>"
+	}) + r.Tag("script", false, &Options{Slot: map[string]namedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
+		P: options,
+		Directives: []directive{
+			{Name: "v-on-handler", Value: nil, Arg: ""},
+		},
+	}) + "<script> console.log(vOnBinds) </script></body></html>"
 }
