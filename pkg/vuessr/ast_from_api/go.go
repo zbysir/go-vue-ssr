@@ -12,6 +12,7 @@ func Js2Go(code string, dataKey string) (goCode string, err error) {
 	code = fmt.Sprintf("(%s)", code)
 	node, err := GetAST(code)
 	if err != nil {
+		err = fmt.Errorf("GetAst err: %v, code:%s", err, code)
 		return
 	}
 

@@ -174,7 +174,7 @@ func GenAllFile(src, desc string, pkg string) (err error) {
 		newCode := []byte(newCodeStr)
 		newCodeFormat, e := format.Source(newCode)
 		if e != nil {
-			log.Errorf("format.Source err:%+v, src:%s", e, newCodeStr)
+			log.Errorf("format.Source [%s] err:%+v, src:%s", v.ComponentName, e, newCodeStr)
 		} else {
 			newCode = newCodeFormat
 		}
@@ -413,7 +413,7 @@ type Options struct {
 	Class     []string                 // 本节点静态class
 	Style     map[string]string        // 本节点静态style
 	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]namedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Slot      map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
 	// - 读取上层传递的PropsClass, 作用在root tag
@@ -462,7 +462,7 @@ type ComponentFunc func(options *Options) string
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type namedSlotFunc func(props map[string]interface{}) string
+type NamedSlotFunc func(props map[string]interface{}) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化

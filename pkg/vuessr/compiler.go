@@ -164,7 +164,7 @@ func (o *OptionsGen) ToGoCode() string {
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
-	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "namedSlotFunc"))
+	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc"))
 
 	// p
 	c += fmt.Sprintf("P: options,\n")
@@ -200,7 +200,7 @@ func (o *OptionsGen) ToGoCode() string {
 				panic(err)
 			}
 
-			on += fmt.Sprintf("{Func: \"%s\", Args: %s, Event: \"%s\"}", funcName, args, v.Event)
+			on += fmt.Sprintf("{Func: \"%s\", Args: %s, Event: \"%s\"},\n", funcName, args, v.Event)
 		}
 
 		on += "}"

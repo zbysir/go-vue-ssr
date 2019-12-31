@@ -332,18 +332,28 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 				props[key] = attr.Val
 			} else if strings.HasPrefix(oriKey, "@") || nameSpace == "v-on" {
 				// v-on & shorthands @
+				// v-on和普通的指令不同, 它的值是一个方法, 并且是js方法, 所以在模板中无法计算或者存储该值, 只能换一个方法: 存储为对象{event, funcName}, 让js代码再去调用.
 				end := strings.LastIndex(attr.Val, ")")
 				start := strings.Index(attr.Val, "(")
+				// func(a, b)
 				if end != -1 && start != -1 {
 					args := attr.Val[start+1 : end]
 					fun := attr.Val[:start]
 
-					event := key
-					event = strings.TrimPrefix(event, "@")
+					event := strings.TrimPrefix(key, "@")
 
 					vOn = append(vOn, VOnDirective{
 						Func:  fun,
 						Args:  args,
+						Event: event,
+						Exp:   attr.Val,
+					})
+				}else{
+					// func
+					event := strings.TrimPrefix(key, "@")
+					vOn = append(vOn, VOnDirective{
+						Func:  attr.Val,
+						Args:  "",
 						Event: event,
 						Exp:   attr.Val,
 					})
