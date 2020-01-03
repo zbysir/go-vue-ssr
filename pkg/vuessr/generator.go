@@ -375,11 +375,29 @@ func (r *Render) Component_component(options *Options) string {
 	return fmt.Sprintf("<p>not register com: %s</p>", is)
 }
 
+func (r *Render) Component_template(options *Options) string {
+	// exec directive
+	if len(options.Directives) != 0 {
+		for _, d := range options.Directives {
+			if f, ok := r.directives[d.Name]; ok {
+				f(DirectivesBinding{
+					Value: d.Value,
+					Arg:   d.Arg,
+					Name:  d.Name,
+				}, options)
+			}
+		}
+	}
+
+	return options.Slot["default"](nil)
+}
+
 // 动态tag
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
 func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+    // todo 现没有考虑作用在自定义组件上的指令
 	// exec directive
 	if len(options.Directives) != 0 {
 		for _, d := range options.Directives {

@@ -276,8 +276,18 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		optionsCode := options.ToGoCode()
 		eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
 	} else if e.TagName == "template" {
-		// 使用子级
-		eleCode = defaultSlotCode
+		// template支持自定义指令, 可以用于设置数据等
+		if len(e.Directives) != 0 {
+			options := OptionsGen{
+				DefaultSlotCode: defaultSlotCode,
+				Directives:      e.Directives,
+			}
+			optionsCode := options.ToGoCode()
+			eleCode = fmt.Sprintf("r.Component_template(%s)", optionsCode)
+		} else {
+			// 直接使用子级
+			eleCode = defaultSlotCode
+		}
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
