@@ -280,8 +280,6 @@ func fileMd5(filePath string, salt string) string {
 }
 
 const buildInCode = `
-package xxx
-
 import (
 	"encoding/json"
 	"fmt"
@@ -298,17 +296,17 @@ type Render struct {
 	components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
-	
+
 	VOnBinds []vOnBind
 	vOnDomId int
 	//ctx map[string]interface{} // 存储数据
 }
 
-type vOnBind struct{
-	Func string
+type vOnBind struct {
+	Func        string
 	DomSelector string
-	Args []interface{}
-	Event string
+	Args        []interface{}
+	Event       string
 }
 
 type Prototype map[string]interface{}
@@ -394,7 +392,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 			}
 		}
 	}
-    // exec von
+	// exec von
 	// 生成唯一id 并存放在dom上
 	// 存储数据
 	if len(options.VonDirectives) != 0 {
@@ -415,7 +413,6 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 		options.Attrs["data-von-"+dom] = ""
 	}
 
-   
 	var p *Options
 	if isRoot {
 		p = options.P
@@ -445,9 +442,9 @@ type Options struct {
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
 	// - 读取上层传递的PropsClass, 作用在root tag
-	P          *Options
-	Directives []directive // 指令值
-    VonDirectives []vonDirective
+	P             *Options
+	Directives    []directive // 指令值
+	VonDirectives []vonDirective
 }
 
 type directive struct {
@@ -458,8 +455,8 @@ type directive struct {
 
 type vonDirective struct {
 	Event string
-	Func string
-	Args []interface{}
+	Func  string
+	Args  []interface{}
 }
 
 type Props map[string]interface{}
@@ -596,8 +593,8 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 	if options != nil {
 		// 上层传递的props
 		if options.Props != nil {
-			for k, v := range (Props(options.Props)).CanBeAttr() {
-				attrs[k] = fmt.Sprintf("%v", v)
+			for k, v := range getStyleFromProps(options.Props.CanBeAttr()) {
+				attrs[k] = v
 			}
 		}
 
@@ -650,9 +647,9 @@ func genAttr(attr map[string]string) string {
 	st := ""
 	for _, k := range sortedKeys {
 		v := attr[k]
-		if v != ""{
+		if v != "" {
 			st += fmt.Sprintf("%s=\"%s\" ", k, v)
-		}else{
+		} else {
 			st += fmt.Sprintf("%s ", k)
 		}
 	}
@@ -668,7 +665,13 @@ func getStyleFromProps(styleProps interface{}) map[string]string {
 	}
 	st := map[string]string{}
 	for k, v := range pm {
-		st[k] = escape(fmt.Sprintf("%v", v))
+		switch v := v.(type) {
+		case string:
+			st[k] = escape(v)
+		default:
+			bs, _ := json.Marshal(v)
+			st[k] = escape(string(bs))
+		}
 	}
 	return st
 }
@@ -834,7 +837,6 @@ func isNumber(s interface{}) (d float64, is bool) {
 		return 0, false
 	}
 }
-
 
 // 用于{{func(a)}}语法
 func interfaceToFunc(s interface{}) (d Function) {
