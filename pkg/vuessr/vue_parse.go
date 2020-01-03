@@ -148,6 +148,38 @@ type Element struct {
 	Root bool
 }
 
+// 是否只有一个子节点
+// 和正常html不同的是, vue中串联的v-if/v-else只算一个节点
+func (e *Element) hasOnlyOneChildren() bool {
+	c := 0
+	for _, v := range e.Children {
+		hasIf := false
+		hasElse := false
+		hasElseIf := false
+		for _, a := range v.Attrs {
+			if a.Key == "v-if" {
+				hasIf = true
+				break
+			} else if a.Key == "v-else" {
+				hasElse = true
+				break
+			} else if a.Key == "v-else-if" {
+				hasElseIf = true
+				break
+			}
+		}
+
+		if hasIf {
+			c++
+		} else if hasElse || hasElseIf {
+		} else {
+			c++
+		}
+	}
+
+	return c == 1
+}
+
 func hNodeToElement(nodes []*html.Node) []*Element {
 	var es []*Element
 	for _, node := range nodes {
@@ -267,8 +299,10 @@ func ParseVue(filename string) (v *VueElement, err error) {
 	if len(es) == 1 {
 		// 按照vue组件写法才会有root节点
 		if es[0].TagName == "template" {
-			if len(es[0].Children) == 1 {
-				es[0].Children[0].Root = true
+			if es[0].hasOnlyOneChildren() {
+				for _, v := range es[0].Children {
+					v.Root = true
+				}
 			}
 		}
 		v = p.Parse(es[0])
@@ -293,6 +327,7 @@ func (p VueElementParser) Parse(e *Element) *VueElement {
 }
 
 // 递归处理同级节点
+// 使用数组有一个好处就是方便的处理串联的v-if
 func (p VueElementParser) parseList(es []*Element) []*VueElement {
 	vs := make([]*VueElement, len(es))
 
@@ -348,7 +383,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 						Event: event,
 						Exp:   attr.Val,
 					})
-				}else{
+				} else {
 					// func
 					event := strings.TrimPrefix(key, "@")
 					vOn = append(vOn, VOnDirective{

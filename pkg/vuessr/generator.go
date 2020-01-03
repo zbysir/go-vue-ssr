@@ -424,7 +424,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 	// attr
 	attr := mixinClass(p, options.Class, options.PropsClass) +
 		mixinStyle(p, options.Style, options.PropsStyle) +
-		mixinAttr(p, options.Attrs, options.Props.CanBeAttr())
+		mixinAttr(p, options.Attrs, options.Props)
 
 	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slot["default"](nil), tagName)
 	return eleCode
