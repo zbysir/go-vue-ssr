@@ -430,21 +430,22 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 // 渲染组件需要的结构
 // tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
-	Props      Props       // 本节点的数据(不包含class和style)
-	PropsClass interface{} // :class
-	PropsStyle interface{} // :style
-	// PropsAttr  map[string]interface{}   // 可以被生成attr的Props, 由Props.CanBeAttr而来
-	Attrs     map[string]string        // 本节点静态的attrs (除去class和style)
-	Class     []string                 // 本节点静态class
-	Style     map[string]string        // 本节点静态style
-	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Props      Props                    // 本节点的数据(不包含class和style)
+	PropsClass interface{}              // :class
+	PropsStyle interface{}              // :style
+	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
+	Class      []string                 // 本节点静态class
+	Style      map[string]string        // 本节点静态style
+	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
 	// - 读取上层传递的PropsClass, 作用在root tag
 	P             *Options
 	Directives    []directive // 指令值
 	VonDirectives []vonDirective
+	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
+	// tips: 由于渲染顺序, 修改只会影响到子节点
+	Data map[string]interface{}
 }
 
 type directive struct {
@@ -735,6 +736,16 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 		}
 	}
 	return desc
+}
+
+// 
+func extendMapRelate(src map[string]interface{}, ext ...map[string]interface{}) {
+	for _, m := range ext {
+		for k, v := range m {
+			src[k] = v
+		}
+	}
+	return
 }
 
 func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {

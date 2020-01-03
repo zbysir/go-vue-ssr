@@ -207,6 +207,9 @@ func (o *OptionsGen) ToGoCode() string {
 		c += fmt.Sprintf("VonDirectives: %s,\n", on)
 	}
 
+	// data
+	c += fmt.Sprintf("Data: %s,\n", DataKey)
+
 	c += "}"
 	return c
 }
