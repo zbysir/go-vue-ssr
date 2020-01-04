@@ -54,6 +54,7 @@ type MyRender struct{
 
 func (r *MyRender) addDirective() {
 	render:= r.Render
+    // v-set指令会在渲染过程中存储变量, 可以通过v-set获取变量
 	// 使用闭包特性在多个指令中共享数据
 	// 语法: v-set:swiper="{a: 1}"
     render.Directive("v-set", func(binding vuetpl.DirectivesBinding, options *vuetpl.Options) {
@@ -111,6 +112,27 @@ v-set指令会在组件渲染的时候执行, 并将speed和loop数据保存下�
 ```
 如何定义与处理数据完全取决与你.
 
+---
+
+另外 和vue不同, Govuessr中指令可以作用在template上, 但由于template没有真实dom, 所以无法操作如class/style等dom相关的数据, 但可以操作如data/slot这样的渲染有关的数据.
+
+所以现在你可以实现声明变量了.
+
+指令如下
+```
+render.Directive("v-data-set", func(b vuetpl.DirectivesBinding, options *vuetpl.Options) {
+		options.Data[b.Arg] = b.Value
+	})
+```
+
+模板如下
+```
+...
+<template v-data-set:msg="'hello'"/>
+{{msg}}
+```
+在第三行就可以打印出msg的值.
+
 ## Prototype
 我们知道在Vue中有Store给我们提供了访问全局数据的解决方案, 那么在这个框架中如何读取全局变量呢?
 
@@ -139,6 +161,10 @@ r.Prototype = map[string]interface{}{
 
 ## v-on
 这个指令是运行时指令，大体功能和上面说的v-set自定义指令类似，都是存储数据，唯一不同的是v-on指令会自动生成一个event-id在dom上，用于事件与dom的绑定。
+
+例子请看 [example/helloworld/vue/v-on.vue](/example/helloworld/vue/v-on.vue)
+
+tip: 因为Govuessr更关注dom, 而非js, 所以这只是一个简易实现, 后续可能会优化.
 
 ------
 
