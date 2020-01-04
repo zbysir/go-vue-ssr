@@ -9,7 +9,8 @@
 <info :name="title" :slogan="slogan" :logo="logo" style="padding: 20px" :height="height+1"></info>
 <v-on :msg="'hello event'"></v-on>
 
-<script v-on-handler/>
+<script v-on-handler="">
+</script>
 <script>
     // 为dom添加事件
     for (var i in vOnBinds) {
@@ -24,6 +25,10 @@
                 }
             }
         }(item, dom))
+    }
+
+    function buttonClick(msg) {
+        alert(msg)
     }
 </script>
 

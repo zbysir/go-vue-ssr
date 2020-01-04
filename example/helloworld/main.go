@@ -14,7 +14,7 @@ func main() {
 	r.Directive("v-on-handler", func(b DirectivesBinding, options *Options) {
 		options.Slot = map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string {
 			bs, _ := json.Marshal(r.VOnBinds)
-			return fmt.Sprintf("var vOnBinds = %s; for (var i in vOnBinds){var item = vOnBinds[i]; document.querySelector('[data-von-'+item.DomSelector+']').addEventListener(item.Event, function() {window[item.Func].call(window, ...item.Args)})}", bs)
+			return fmt.Sprintf("var vOnBinds = %s;", bs)
 		}}
 	})
 	htmlStr := r.Component_page(&Options{

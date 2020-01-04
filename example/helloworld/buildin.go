@@ -2,8 +2,6 @@
 
 package main
 
-
-
 import (
 	"encoding/json"
 	"fmt"
@@ -20,17 +18,17 @@ type Render struct {
 	components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
-	
+
 	VOnBinds []vOnBind
 	vOnDomId int
 	//ctx map[string]interface{} // 存储数据
 }
 
-type vOnBind struct{
-	Func string
+type vOnBind struct {
+	Func        string
 	DomSelector string
-	Args []interface{}
-	Event string
+	Args        []interface{}
+	Event       string
 }
 
 type Prototype map[string]interface{}
@@ -99,11 +97,7 @@ func (r *Render) Component_component(options *Options) string {
 	return fmt.Sprintf("<p>not register com: %s</p>", is)
 }
 
-// 动态tag
-// 何为动态tag:
-// - 每个组件的root层tag(attr受到上层传递的props影响)
-// - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+func (r *Render) Component_template(options *Options) string {
 	// exec directive
 	if len(options.Directives) != 0 {
 		for _, d := range options.Directives {
@@ -116,7 +110,29 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 			}
 		}
 	}
-    // exec von
+
+	return options.Slot["default"](nil)
+}
+
+// 动态tag
+// 何为动态tag:
+// - 每个组件的root层tag(attr受到上层传递的props影响)
+// - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
+func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+    // todo 现没有考虑作用在自定义组件上的指令
+	// exec directive
+	if len(options.Directives) != 0 {
+		for _, d := range options.Directives {
+			if f, ok := r.directives[d.Name]; ok {
+				f(DirectivesBinding{
+					Value: d.Value,
+					Arg:   d.Arg,
+					Name:  d.Name,
+				}, options)
+			}
+		}
+	}
+	// exec von
 	// 生成唯一id 并存放在dom上
 	// 存储数据
 	if len(options.VonDirectives) != 0 {
@@ -137,7 +153,6 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 		options.Attrs["data-von-"+dom] = ""
 	}
 
-   
 	var p *Options
 	if isRoot {
 		p = options.P
@@ -146,7 +161,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 	// attr
 	attr := mixinClass(p, options.Class, options.PropsClass) +
 		mixinStyle(p, options.Style, options.PropsStyle) +
-		mixinAttr(p, options.Attrs, options.Props.CanBeAttr())
+		mixinAttr(p, options.Attrs, options.Props)
 
 	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slot["default"](nil), tagName)
 	return eleCode
@@ -155,21 +170,22 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 // 渲染组件需要的结构
 // tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
-	Props      Props       // 本节点的数据(不包含class和style)
-	PropsClass interface{} // :class
-	PropsStyle interface{} // :style
-	// PropsAttr  map[string]interface{}   // 可以被生成attr的Props, 由Props.CanBeAttr而来
-	Attrs     map[string]string        // 本节点静态的attrs (除去class和style)
-	Class     []string                 // 本节点静态class
-	Style     map[string]string        // 本节点静态style
-	StyleKeys []string                 // 样式的key, 用来保证顺序, 只会作用在root节点
-	Slot      map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Props      Props                    // 本节点的数据(不包含class和style)
+	PropsClass interface{}              // :class
+	PropsStyle interface{}              // :style
+	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
+	Class      []string                 // 本节点静态class
+	Style      map[string]string        // 本节点静态style
+	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
 	// - 读取上层传递的PropsClass, 作用在root tag
-	P          *Options
-	Directives []directive // 指令值
-    VonDirectives []vonDirective
+	P             *Options
+	Directives    []directive // 指令值
+	VonDirectives []vonDirective
+	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
+	// tips: 由于渲染顺序, 修改只会影响到子节点
+	Data map[string]interface{}
 }
 
 type directive struct {
@@ -180,8 +196,8 @@ type directive struct {
 
 type vonDirective struct {
 	Event string
-	Func string
-	Args []interface{}
+	Func  string
+	Args  []interface{}
 }
 
 type Props map[string]interface{}
@@ -318,8 +334,8 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 	if options != nil {
 		// 上层传递的props
 		if options.Props != nil {
-			for k, v := range (Props(options.Props)).CanBeAttr() {
-				attrs[k] = fmt.Sprintf("%v", v)
+			for k, v := range getStyleFromProps(options.Props.CanBeAttr()) {
+				attrs[k] = v
 			}
 		}
 
@@ -372,9 +388,9 @@ func genAttr(attr map[string]string) string {
 	st := ""
 	for _, k := range sortedKeys {
 		v := attr[k]
-		if v != ""{
+		if v != "" {
 			st += fmt.Sprintf("%s=\"%s\" ", k, v)
-		}else{
+		} else {
 			st += fmt.Sprintf("%s ", k)
 		}
 	}
@@ -390,7 +406,13 @@ func getStyleFromProps(styleProps interface{}) map[string]string {
 	}
 	st := map[string]string{}
 	for k, v := range pm {
-		st[k] = escape(fmt.Sprintf("%v", v))
+		switch v := v.(type) {
+		case string:
+			st[k] = escape(v)
+		default:
+			bs, _ := json.Marshal(v)
+			st[k] = escape(string(bs))
+		}
 	}
 	return st
 }
@@ -454,6 +476,16 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 		}
 	}
 	return desc
+}
+
+// 
+func extendMapRelate(src map[string]interface{}, ext ...map[string]interface{}) {
+	for _, m := range ext {
+		for k, v := range m {
+			src[k] = v
+		}
+	}
+	return
 }
 
 func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
@@ -556,7 +588,6 @@ func isNumber(s interface{}) (d float64, is bool) {
 		return 0, false
 	}
 }
-
 
 // 用于{{func(a)}}语法
 func interfaceToFunc(s interface{}) (d Function) {

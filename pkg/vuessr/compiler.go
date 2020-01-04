@@ -22,7 +22,6 @@ type OptionsGen struct {
 	Attrs           map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
 	Class           []string          // 静态class
 	Style           map[string]string // 静态style
-	StyleKeys       []string          // 样式的key, 用来保证顺序
 	Slot            map[string]string // 插槽节点
 	DefaultSlotCode string            // 子节点code, 用于默认的插槽
 	NamedSlotCode   map[string]string // 具名插槽
@@ -148,9 +147,6 @@ func (o *OptionsGen) ToGoCode() string {
 	if len(o.Style) != 0 {
 		c += fmt.Sprintf("Style: %s,\n", mapStringToGoCode(o.Style))
 	}
-	if len(o.StyleKeys) != 0 {
-		c += fmt.Sprintf("StyleKeys: %s,\n", sliceToGoCode(o.StyleKeys))
-	}
 
 	// slot
 	slot := map[string]string{}
@@ -263,7 +259,6 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 	if exist {
 		options := OptionsGen{
-			StyleKeys:       e.StyleKeys,
 			Class:           e.Class,
 			Attrs:           e.Attrs,
 			Props:           e.Props,
@@ -309,7 +304,6 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				Attrs:           e.Attrs,
 				Class:           e.Class,
 				Style:           e.Style,
-				StyleKeys:       e.StyleKeys,
 				Slot:            nil,
 				DefaultSlotCode: defaultSlotCode,
 				NamedSlotCode:   namedSlotCode,
