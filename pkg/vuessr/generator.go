@@ -937,33 +937,35 @@ func shouldLookInterface(data interface{}, key string) (desc interface{}, exist 
 	}
 
 	if len(kk) == 1 {
-		if isObj {
-			c, ok := obj[currKey]
+		switch data := data.(type) {
+		case map[string]interface{}:
+			c, ok := data[currKey]
 			if !ok {
 				return
 			}
 			return c, true
-		} else if arr, isArr := data.([]interface{}); isArr {
-			index, ok := strconv.ParseInt(key, 10, 64)
-			if ok != nil {
-				return
-			}
-			if int(index) >= len(arr) {
-				return
-			}
-			desc = arr[index]
-			return
-		} else {
+		case []interface{}:
 			switch currKey {
 			case "length":
-				switch t := data.(type) {
-				// string
-				case string:
-					return len(t), true
-				default:
-					// slice
-					return len(interface2Slice(t)), true
+				// length
+				return len(data), true
+			default:
+				// index
+				index, ok := strconv.ParseInt(key, 10, 64)
+				if ok != nil {
+					return
 				}
+				if int(index) >= len(data) {
+					return
+				}
+				return data[index], true
+			}
+		case string:
+			switch currKey {
+			case "length":
+				// length
+				return len(data), true
+			default:
 			}
 		}
 	} else {

@@ -127,7 +127,7 @@ func TestStyle(t *testing.T) {
 func TestVText(t *testing.T) {
 	r := vuetpl.NewRender()
 
-	html := r.Component_vtext(&vuetpl.Options{
+	html := r.Component_text(&vuetpl.Options{
 		Props: map[string]interface{}{
 			"text": "<p color=red>bysir.jpg</p>",
 			"html": "<p color=red>bysir.jpg</p>",
