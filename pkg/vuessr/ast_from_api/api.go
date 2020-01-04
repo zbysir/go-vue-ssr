@@ -36,6 +36,7 @@ type BinaryExpression struct {
 	Right    Node   `json:"right"`
 }
 
+// 一元运算符号 ! -
 type UnaryExpression struct {
 	Operator string `json:"operator"` // !
 	Prefix   bool   `json:"prefix"`

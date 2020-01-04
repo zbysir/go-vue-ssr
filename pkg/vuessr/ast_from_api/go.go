@@ -74,7 +74,15 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, o, right)
 	case UnaryExpression:
 		arg := genGoCodeByNode(t.Argument, dataKey)
-		return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
+		switch t.Operator {
+		case "!":
+			return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
+		case "-":
+			// -1
+			return fmt.Sprintf(`%s%s`, t.Operator, arg)
+		default:
+			panic(fmt.Sprintf("not handle UnaryExpression: %s", t.Operator))
+		}
 	case ObjectExpression:
 		if len(t.Properties) == 0 {
 			return "nil"
