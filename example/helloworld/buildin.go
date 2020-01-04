@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -15,7 +16,7 @@ type Render struct {
 	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
 	Prototype Prototype
 	// 注册的动态组件
-	components map[string]ComponentFunc
+	Components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
 
@@ -90,7 +91,7 @@ func (r *Render) Component_component(options *Options) string {
 	if !ok {
 		return ""
 	}
-	if c, ok := r.components[is]; ok {
+	if c, ok := r.Components[is]; ok {
 		return c(options)
 	}
 
@@ -119,7 +120,7 @@ func (r *Render) Component_template(options *Options) string {
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
 func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
-    // todo 现没有考虑作用在自定义组件上的指令
+	// todo 现没有考虑作用在自定义组件上的指令
 	// exec directive
 	if len(options.Directives) != 0 {
 		for _, d := range options.Directives {
@@ -462,8 +463,6 @@ func lookInterface(data interface{}, key string) (desc interface{}) {
 	return m
 }
 
-var LookInterface = lookInterface
-
 // 扩展map, 实现作用域
 func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc map[string]interface{}) {
 	desc = make(map[string]interface{}, len(src))
@@ -645,14 +644,14 @@ func interface2Slice(s interface{}) (d []interface{}) {
 }
 
 func shouldLookInterface(data interface{}, key string) (desc interface{}, exist bool) {
-	m, isObj := data.(map[string]interface{})
+	obj, isObj := data.(map[string]interface{})
 
 	kk := strings.Split(key, ".")
 	currKey := kk[0]
 
 	// 如果是对象, 则继续查找下一级
 	if len(kk) != 1 && isObj {
-		c, ok := m[currKey]
+		c, ok := obj[currKey]
 		if !ok {
 			return
 		}
@@ -661,11 +660,21 @@ func shouldLookInterface(data interface{}, key string) (desc interface{}, exist 
 
 	if len(kk) == 1 {
 		if isObj {
-			c, ok := m[currKey]
+			c, ok := obj[currKey]
 			if !ok {
 				return
 			}
 			return c, true
+		} else if arr, isArr := data.([]interface{}); isArr {
+			index, ok := strconv.ParseInt(key, 10, 64)
+			if ok != nil {
+				return
+			}
+			if int(index) >= len(arr) {
+				return
+			}
+			desc = arr[index]
+			return
 		} else {
 			switch currKey {
 			case "length":
