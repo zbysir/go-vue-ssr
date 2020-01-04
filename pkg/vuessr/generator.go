@@ -86,7 +86,7 @@ func genNew(components map[string]string, pkgName string) string {
 		"package %s\n\n"+
 		"func NewRender() *Render{"+
 		"r:=&Render{}\n"+
-		"r.components = %s\n"+
+		"r.Components = %s\n"+
 		"return r"+
 		"}",
 		pkgName, mapGoCodeToCode(m, "ComponentFunc"))
@@ -293,7 +293,7 @@ type Render struct {
 	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
 	Prototype Prototype
 	// 注册的动态组件
-	components map[string]ComponentFunc
+	Components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
 
@@ -368,7 +368,7 @@ func (r *Render) Component_component(options *Options) string {
 	if !ok {
 		return ""
 	}
-	if c, ok := r.components[is]; ok {
+	if c, ok := r.Components[is]; ok {
 		return c(options)
 	}
 
