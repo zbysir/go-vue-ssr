@@ -86,8 +86,9 @@ func (p Property) GetKey() string {
 	return key
 }
 
-// 获取a.b.c.d
-func (p MemberExpression) GetKey(computed bool) string {
+// 将a.b.c.d[e], 解析成多个key
+// keys中的静态字符串带了引号，动态变量则是变量，可以直接用于go代码运行。
+func (p MemberExpression) GetKey(computed bool) (keys []string) {
 	currKey := ""
 	switch t := p.Property.Assert().(type) {
 	case Identifier:
@@ -99,20 +100,24 @@ func (p MemberExpression) GetKey(computed bool) string {
 	}
 
 	if computed {
-		currKey = fmt.Sprintf(`"+interfaceToStr(lookInterface(this, "%s"))+"`, currKey)
+		currKey = fmt.Sprintf(`interfaceToStr(lookInterface(this, "%s"))`, currKey)
+	} else {
+		currKey = fmt.Sprintf(`"%s"`, currKey)
 	}
 
-	parentKey := ""
+	// 递归获取父级keys
+	var parentKey []string
+
 	switch t := p.Object.Assert().(type) {
 	case MemberExpression:
-		parentKey += t.GetKey(t.Computed) + "."
+		parentKey = t.GetKey(t.Computed)
 	case Identifier:
-		parentKey += t.Name + "."
+		parentKey = []string{fmt.Sprintf(`"%s"`, t.Name)}
 	case Literal:
-		parentKey += t.Value.(string) + "."
+		parentKey = []string{fmt.Sprintf(`"%s"`, t.Value.(string))}
 	}
 
-	return parentKey + currKey
+	return append(parentKey, currKey)
 }
 
 // a.b.c这样的读取成员变量表达式

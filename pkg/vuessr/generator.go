@@ -732,13 +732,22 @@ func getClassFromProps(classProps interface{}) []string {
 	return cs
 }
 
-func lookInterface(data interface{}, key string) (desc interface{}) {
-	m, ok := shouldLookInterface(data, key)
+func lookInterface(data interface{}, keys ...string) (desc interface{}) {
+	m, ok := shouldLookInterface(data, keys...)
 	if !ok {
 		return nil
 	}
 
 	return m
+}
+
+func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
+	m, ok := shouldLookInterface(data, key)
+	if !ok {
+		return nil
+	}
+
+	return interface2Slice(m)
 }
 
 // 扩展map, 实现作用域
@@ -755,25 +764,6 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 	return desc
 }
 
-// 
-func extendMapRelate(src map[string]interface{}, ext ...map[string]interface{}) {
-	for _, m := range ext {
-		for k, v := range m {
-			src[k] = v
-		}
-	}
-	return
-}
-
-func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
-	m, ok := shouldLookInterface(data, key)
-	if !ok {
-		return nil
-	}
-
-	return interface2Slice(m)
-}
-
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
 	case int, string, float64:
@@ -788,8 +778,6 @@ func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	}
 	return
 }
-
-var InterfaceToStr = interfaceToStr
 
 // 字符串false,0 会被认定为false
 func interfaceToBool(s interface{}) (d bool) {
@@ -921,56 +909,45 @@ func interface2Slice(s interface{}) (d []interface{}) {
 	return
 }
 
-func shouldLookInterface(data interface{}, key string) (desc interface{}, exist bool) {
-	obj, isObj := data.(map[string]interface{})
+// shouldLookInterface会返回interface(map[string]interface{})中指定的keys路径的值
+func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, exist bool) {
+	if len(keys) == 0 {
+		return data, true
+	}
 
-	kk := strings.Split(key, ".")
-	currKey := kk[0]
+	currKey := keys[0]
 
-	// 如果是对象, 则继续查找下一级
-	if len(kk) != 1 && isObj {
-		c, ok := obj[currKey]
+	switch data := data.(type) {
+	case map[string]interface{}:
+		c, ok := data[currKey]
 		if !ok {
 			return
 		}
-		return shouldLookInterface(c, strings.Join(kk[1:], "."))
-	}
 
-	if len(kk) == 1 {
-		switch data := data.(type) {
-		case map[string]interface{}:
-			c, ok := data[currKey]
-			if !ok {
+		return shouldLookInterface(c, keys[1:]...)
+	case []interface{}:
+		switch currKey {
+		case "length":
+			// length
+			return len(data), true
+		default:
+			// index
+			index, ok := strconv.ParseInt(currKey, 10, 64)
+			if ok != nil {
 				return
 			}
-			return c, true
-		case []interface{}:
-			switch currKey {
-			case "length":
-				// length
-				return len(data), true
-			default:
-				// index
-				index, ok := strconv.ParseInt(key, 10, 64)
-				if ok != nil {
-					return
-				}
-				if int(index) >= len(data) {
-					return
-				}
-				return data[index], true
+			if int(index) >= len(data) {
+				return
 			}
-		case string:
-			switch currKey {
-			case "length":
-				// length
-				return len(data), true
-			default:
-			}
+			return shouldLookInterface(data[index], keys[1:]...)
 		}
-	} else {
-		// key不只有一个, 但是data不是对象, 说明出现了undefined的问题, 直接return
-		return
+	case string:
+		switch currKey {
+		case "length":
+			// length
+			return len(data), true
+		default:
+		}
 	}
 
 	return

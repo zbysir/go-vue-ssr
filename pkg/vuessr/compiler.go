@@ -116,7 +116,7 @@ func mapJsCodeToCode(m map[string]string) string {
 
 // 生成Options代码
 func (o *OptionsGen) ToGoCode() string {
-	c := "&Options{"
+	c := "&Options{\n"
 
 	if len(o.Props) != 0 {
 		// class
@@ -407,11 +407,16 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	vfArray := e.ArrayKey
 	vfItem := e.ItemKey
 	vfIndex := e.IndexKey
+	vfArrayCode, err := ast_from_api.Js2Go(vfArray, DataKey)
+	if err != nil {
+		panic(err)
+	}
+
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
 	return fmt.Sprintf(`func ()string{
   var c = ""
 
-  for index, item := range lookInterfaceToSlice(%s, "%s") {
+  for index, item := range interface2Slice(%s) {
     c += func(xdata map[string]interface{}) string{
         %s := extendMap(xdata, map[string]interface{}{
           "%s": index,
@@ -422,7 +427,7 @@ func genVFor(e *VFor, srcCode string) (code string) {
     }(%s)
   }
 return c
-}()`, DataKey, vfArray, DataKey, vfIndex, vfItem, srcCode, DataKey)
+}()`, vfArrayCode, DataKey, vfIndex, vfItem, srcCode, DataKey)
 }
 
 func genVHtml(value string) (code string) {

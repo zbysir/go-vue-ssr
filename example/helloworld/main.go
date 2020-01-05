@@ -21,6 +21,10 @@ func main() {
 		Props: map[string]interface{}{
 			"title":  "go-vue-ssr",
 			"slogan": "Hey vue go",
+			"info": map[string]interface{}{
+				"author": "bysir",
+				"Hey vue go":"Hey vue go",
+			},
 			"logo":   "https://avatars2.githubusercontent.com/u/13434040?s=88&v=4",
 			"height": 100.1,
 		},
