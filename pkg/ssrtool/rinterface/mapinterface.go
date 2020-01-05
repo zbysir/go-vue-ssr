@@ -1,70 +1,82 @@
 package rinterface
 
 import (
+	"strconv"
 	"strings"
 )
 
 // 在map[string]interface{}中找到多级key的value
 // kye: e.g. info.name
-func Get(data interface{}, key string) (desc interface{}) {
-	m, isObj := data.(map[string]interface{})
+func Get(data interface{}, key ...string) (desc interface{}) {
+	keys := key
+	// 兼容老写法
+	if len(key) == 1 {
+		keys = strings.Split(key[0], ".")
+	}
+	desc, _ = shouldLookInterface(data, keys...)
+	return
+}
 
-	kk := strings.Split(key, ".")
-	currKey := kk[0]
+// shouldLookInterface会返回interface(map[string]interface{})中指定的keys路径的值
+func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, exist bool) {
+	if len(keys) == 0 {
+		return data, true
+	}
 
-	// 如果是对象, 则继续查找下一级
-	if len(kk) != 1 && isObj {
-		c, ok := m[currKey]
+	currKey := keys[0]
+
+	switch data := data.(type) {
+	case map[string]interface{}:
+		c, ok := data[currKey]
 		if !ok {
 			return
 		}
-		return Get(c, strings.Join(kk[1:], "."))
-	}
 
-	if len(kk) == 1 {
-		if isObj {
-			c, ok := m[currKey]
-			if !ok {
+		return shouldLookInterface(c, keys[1:]...)
+	case []interface{}:
+		switch currKey {
+		case "length":
+			// length
+			return len(data), true
+		default:
+			// index
+			index, ok := strconv.ParseInt(currKey, 10, 64)
+			if ok != nil {
 				return
 			}
-			return c
-		} else {
-			switch currKey {
-			case "length":
-				switch t := data.(type) {
-				// string
-				case string:
-					return len(t)
-				default:
-					// slice
-					return len(ToSlice(t))
-				}
+			if int(index) >= len(data) {
+				return
 			}
+			return shouldLookInterface(data[index], keys[1:]...)
 		}
-	} else {
-		// key不只有一个, 但是data不是对象, 说明出现了undefined的问题, 直接return
-		return
+	case string:
+		switch currKey {
+		case "length":
+			// length
+			return len(data), true
+		default:
+		}
 	}
 
 	return
 }
 
-func GetStr(data interface{}, key string, escaped ...bool) string {
-	return ToStr(Get(data, key), escaped...)
+func GetStr(data interface{}, key ...string) string {
+	return ToStr(Get(data, key...), false)
 }
 
-func GetBool(data interface{}, key string) bool {
-	return ToBool(Get(data, key))
+func GetBool(data interface{}, key ...string) bool {
+	return ToBool(Get(data, key...))
 }
 
-func GetInt(data interface{}, key string) int64 {
-	return ToInt(Get(data, key))
+func GetInt(data interface{}, key ...string) int64 {
+	return ToInt(Get(data, key...))
 }
 
-func GetSlice(data interface{}, key string) []interface{} {
-	return ToSlice(Get(data, key))
+func GetSlice(data interface{}, key ...string) []interface{} {
+	return ToSlice(Get(data, key...))
 }
 
-func GetSliceInt(data interface{}, key string) []int64 {
-	return ToSliceInt(Get(data, key))
+func GetSliceInt(data interface{}, key ...string) []int64 {
+	return ToSliceInt(Get(data, key...))
 }

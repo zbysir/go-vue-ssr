@@ -7,7 +7,7 @@ import (
 )
 
 // 用于处理{{}}语法, 当传递的是对象时, 应该和vue处理逻辑一致: 序列化为json字符串.
-func ToStr(s interface{}, escaped ...bool) (d string) {
+func ToStr(s interface{}, escaped bool) (d string) {
 	switch a := s.(type) {
 	case int, string, float64, int64, int32, float32:
 		d = fmt.Sprintf("%v", a)
@@ -15,7 +15,7 @@ func ToStr(s interface{}, escaped ...bool) (d string) {
 		bs, _ := json.Marshal(a)
 		d = string(bs)
 	}
-	if len(escaped) == 1 && escaped[0] {
+	if  escaped{
 		d = html.EscapeString(d)
 	}
 	return
