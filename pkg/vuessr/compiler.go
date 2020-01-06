@@ -70,13 +70,19 @@ func getSortedKey(m map[string]string) (keys []string) {
 	return
 }
 
-func mapGoCodeToCode(m map[string]string, valueType string) string {
+func mapGoCodeToCode(m map[string]string, valueType string, newLine bool) string {
 	c := "map[string]" + valueType
 	c += "{"
+	if newLine {
+		c += "\n"
+	}
 
 	for _, k := range getSortedKey(m) {
 		v := m[k]
 		c += fmt.Sprintf(`"%s": %s,`, k, v)
+		if newLine {
+			c += "\n"
+		}
 	}
 	c += "}"
 
@@ -160,7 +166,7 @@ func (o *OptionsGen) ToGoCode() string {
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
-	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc"))
+	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc", false))
 
 	// p
 	c += fmt.Sprintf("P: options,\n")
