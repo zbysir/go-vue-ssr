@@ -26,11 +26,7 @@ Hey vue go
 > - [实测Vue SSR的渲染性能：避开20倍耗时](https://mp.weixin.qq.com/s?__biz=MzUxMzcxMzE5Ng==&mid=2247485601&amp;idx=1&amp;sn=97a45254a771d13789faed81316b465a&source=41#wechat_redirect)
 > - [How to Drastically Reduce Estimated Input Latency and Time to Interactive of SSR Vue.js Applications](https://markus.oberlehner.net/blog/how-to-drastically-reduce-estimated-input-latency-and-time-to-interactive-of-ssr-vue-applications/)
 
-当面临现实的效率问题时, 不得不妥协而使用传统的模板引擎, 但他们实际不是专为现代html而生, 所以都不如vue模板好用(看).
-
-有什么办法能让喜欢vue和go的你我更舒心的编写代码呢?
-
-这就是这个项目诞生的原因.
+为了解决性能与美观的问题, 不得不重新思考, 这就是这个项目诞生的原因.
 
 它将尽力保留vue的特性, 如组件化, [Custom Directives](https://vuejs.org/v2/guide/custom-directive.html), [Class and Style Bindings](https://vuejs.org/v2/guide/class-and-style.html), 相信这些现代特性对于编写html代码是有利的.
 
@@ -41,7 +37,7 @@ Hey vue go
 ## Feature
 基于字符串拼接 而不是 虚拟节点来渲染vue组件, 当然这样做有好有坏.
 
-好处就是性能至少能提升1个数量级, 坏处就是舍去虚拟节点也就无法实现vue的数据绑定特性.
+优点是性能至少能提升1个数量级, 缺点是舍去虚拟节点也就无法实现vue的数据绑定特性.
 
 ## Example & Usage
 > 完整代码[在这](https://github.com/bysir-zl/go-vue-ssr/tree/master/example/helloworld)
@@ -122,7 +118,7 @@ func main()  {
   - v-else-if
   - v-else
 - [List Rendering](https://vuejs.org/v2/guide/list.html)
-  - v-for (only on Array, not support Object/Range)
+  - v-for (for Array only, not support Object/Range)
 - [Slots](https://vuejs.org/v2/guide/components-slots.html)
   - [Compilation Scope](https://vuejs.org/v2/guide/components-slots.html#Compilation-Scope)
   - [Fallback Content](https://vuejs.org/v2/guide/components-slots.html#Fallback-Content)
@@ -131,10 +127,9 @@ func main()  {
 - [Dynamic Components](https://vuejs.org/v2/guide/components-dynamic-async.html)
 
 - Using JavaScript Expressions (by AST)
-  - `+ && || !`
+  - `+ - * / && || !`
   - `function call` e.g. {{calcHeight(srcHeight)}}
   - `.length`
-  - `'list-' + id`
 
 ------
 
