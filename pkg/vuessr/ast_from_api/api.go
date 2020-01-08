@@ -20,6 +20,7 @@ type ExpressionStatement struct {
 	Expression Node `json:"expression"`
 }
 
+// 变量
 type Identifier struct {
 	Name string `json:"name"`
 }
@@ -86,38 +87,45 @@ func (p Property) GetKey() string {
 	return key
 }
 
-// 将a.b.c.d[e], 解析成多个key
-// keys中的静态字符串带了引号，动态变量则是变量，可以直接用于go代码运行。
-func (p MemberExpression) GetKey(computed bool) (keys []string) {
+// 解析js代码: `a.b.c.d[e]`
+// 返回 keys表示读取的路径, `["a", "b", "c", "d", interfaceToStr(lookInterface(this, "d"))]`
+// root表示读取的对象, 支持变量/字面量/字面对象
+func (p MemberExpression) GetCode(dataKey string) (keys []string, root string) {
 	currKey := ""
 	switch t := p.Property.Assert().(type) {
 	case Identifier:
-		currKey = t.Name
+		if p.Computed {
+			currKey = fmt.Sprintf(`interfaceToStr(lookInterface(this, "%s"))`, t.Name)
+		} else {
+			currKey = fmt.Sprintf(`"%s"`, t.Name)
+		}
 	case Literal:
-		currKey = t.Value.(string)
+		currKey = fmt.Sprintf(`"%v"`, t.Value)
 	default:
 		panic(t)
 	}
 
-	if computed {
-		currKey = fmt.Sprintf(`interfaceToStr(lookInterface(this, "%s"))`, currKey)
-	} else {
-		currKey = fmt.Sprintf(`"%s"`, currKey)
-	}
-
-	// 递归获取父级keys
-	var parentKey []string
+	root = ""
 
 	switch t := p.Object.Assert().(type) {
 	case MemberExpression:
-		parentKey = t.GetKey(t.Computed)
+		k, r := t.GetCode(dataKey)
+		root = r
+		keys = append(k, currKey)
 	case Identifier:
-		parentKey = []string{fmt.Sprintf(`"%s"`, t.Name)}
+		// 变量则读取dataKey
+		root = dataKey
+		// 只支持父级是一个变量, 如a.b中的a,
+		keys = []string{fmt.Sprintf(`"%s"`, t.Name), currKey}
 	case Literal:
-		parentKey = []string{fmt.Sprintf(`"%s"`, t.Value.(string))}
+		root = genGoCodeByNode(p.Object, dataKey)
+		keys = []string{currKey}
+	default:
+		root = genGoCodeByNode(p.Object, dataKey)
+		keys = []string{currKey}
 	}
 
-	return append(parentKey, currKey)
+	return
 }
 
 // a.b.c这样的读取成员变量表达式

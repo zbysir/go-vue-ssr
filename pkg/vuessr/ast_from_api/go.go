@@ -37,8 +37,8 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	case Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
 	case MemberExpression:
-		keys := t.GetKey(t.Computed)
-		return fmt.Sprintf(`lookInterface(%s, %s)`, dataKey, strings.Join(keys, ", "))
+		keys ,root:= t.GetCode(dataKey)
+		return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
 	case Literal:
 		// js的字符串可以用'', 但go中必须是"", 所以需要替换
 		c := t.Raw
