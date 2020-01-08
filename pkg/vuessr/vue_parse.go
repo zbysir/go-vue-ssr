@@ -191,6 +191,7 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 		case html.TextNode:
 			// html中多个空格和\n都应该被替换为空格
 			// 注意 <script> 中的节点不应该别替换
+			// 注意下面的实现方式有bug, 没有处理在<script>中的情况
 			//text = strings.ReplaceAll(node.Data, "\n", " ")
 			//reg := regexp.MustCompile(`\s+`)
 			//text = reg.ReplaceAllString(text, " ")

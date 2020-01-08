@@ -1,5 +1,3 @@
-<meta content="x">
-
 <template>
   <div v-if="isShow" class="VueToNuxtLogo">
     <div
