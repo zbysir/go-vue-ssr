@@ -533,7 +533,9 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 
 	// 本身的props
 	for _, c := range getClassFromProps(classProps) {
-		class = append(class, c)
+		if c != "" {
+			class = append(class, c)
+		}
 	}
 
 	if options != nil {
@@ -541,7 +543,9 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 		if options.Props != nil {
 			if options.PropsClass != nil {
 				for _, c := range getClassFromProps(options.PropsClass) {
-					class = append(class, c)
+					if c != "" {
+						class = append(class, c)
+					}
 				}
 			}
 		}
@@ -562,6 +566,7 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 
 	return
 }
+
 
 // 构建style, 生成如style="color: red"的代码, 如果style代码为空 则只会返回空字符串
 func mixinStyle(options *Options, staticStyle map[string]string, styleProps interface{}) (str string) {
