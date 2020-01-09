@@ -1,13 +1,11 @@
 // cd internal/test/bench_string
 // go-vue-ssr -src=./ -to=./ -pkg=bench_string
 
-package bench_string
+package bench_buffer
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"go.zhuzi.me/go/util"
 	"testing"
 )
 
@@ -16,9 +14,9 @@ type data struct {
 	Msg string  `json:"msg"`
 }
 
-// 10000 111000400 ns/op
-// 1000 9,766,647 ns/op
-func BenchmarkString(b *testing.B) {
+// 10000 103900070 ns/op
+// 1000 9,174,621 ns/op
+func BenchmarkBuffer(b *testing.B) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
@@ -35,7 +33,8 @@ func BenchmarkString(b *testing.B) {
 		C:   ds,
 		Msg: "1",
 	}
-	util.CopyObj(d, &ii)
+	bs, _ := json.Marshal(d)
+	json.Unmarshal(bs, &ii)
 
 	r := NewRender()
 
@@ -48,9 +47,7 @@ func BenchmarkString(b *testing.B) {
 	}
 }
 
-// 100000 8565 ns/op
-// 1000000 2116000200 ns/op
-func TestString(b *testing.T) {
+func TestBuffer(b *testing.T) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
@@ -77,10 +74,11 @@ func TestString(b *testing.T) {
 			"data": ii,
 		},
 	})
+
 }
 
 // 7946 ns/op
-func BenchmarkString2(b *testing.B) {
+func BenchmarkBuffer2(b *testing.B) {
 	var ii interface{}
 	// 生成10000个嵌套数据
 	index := 0
@@ -100,8 +98,8 @@ func BenchmarkString2(b *testing.B) {
 
 		index++
 	}
-
-	util.CopyObj(d, &ii)
+	bs, _ := json.Marshal(d)
+	json.Unmarshal(bs, &ii)
 
 	r := NewRender()
 
@@ -111,25 +109,5 @@ func BenchmarkString2(b *testing.B) {
 				"data": ii,
 			},
 		})
-	}
-}
-
-// 14375 ns/op
-func BenchmarkAppendBuffer(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var buffer bytes.Buffer
-		for i := 0; i < 1000; i++ {
-			buffer.WriteString("a")
-		}
-	}
-}
-
-// 301735 ns/op
-func BenchmarkAppendString(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		var buffer string
-		for i := 0; i < 1000; i++ {
-			buffer+="a"
-		}
 	}
 }

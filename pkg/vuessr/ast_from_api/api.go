@@ -7,6 +7,7 @@ import (
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/obj"
 	"reflect"
+	"strings"
 )
 
 type Node map[string]interface{}
@@ -66,7 +67,7 @@ type Property struct {
 type MemberExpression struct {
 	Object   Node `json:"object"`
 	Property Node `json:"property"`
-	Computed bool // 键是否变量
+	Computed bool // Property是否变量
 }
 
 func (p Property) GetKey() string {
@@ -90,17 +91,19 @@ func (p Property) GetKey() string {
 // 解析js代码: `a.b.c.d[e]`
 // 返回 keys表示读取的路径, `["a", "b", "c", "d", interfaceToStr(lookInterface(this, "d"))]`
 // root表示读取的对象, 支持变量/字面量/字面对象
-func (p MemberExpression) GetCode(dataKey string) (keys []string, root string) {
+func (p MemberExpression) GetKey(dataKey string) (root string, keys []string) {
 	currKey := ""
 	switch t := p.Property.Assert().(type) {
 	case Identifier:
 		if p.Computed {
-			currKey = fmt.Sprintf(`interfaceToStr(lookInterface(this, "%s"))`, t.Name)
+			currKey = fmt.Sprintf(`interfaceToStr(lookInterface(%s, "%s"))`, dataKey, t.Name)
 		} else {
 			currKey = fmt.Sprintf(`"%s"`, t.Name)
 		}
 	case Literal:
 		currKey = fmt.Sprintf(`"%v"`, t.Value)
+	case MemberExpression:
+		currKey = fmt.Sprintf("interfaceToStr(%s)", t.GetCode(dataKey))
 	default:
 		panic(t)
 	}
@@ -109,7 +112,7 @@ func (p MemberExpression) GetCode(dataKey string) (keys []string, root string) {
 
 	switch t := p.Object.Assert().(type) {
 	case MemberExpression:
-		k, r := t.GetCode(dataKey)
+		r, k := t.GetKey(dataKey)
 		root = r
 		keys = append(k, currKey)
 	case Identifier:
@@ -126,6 +129,12 @@ func (p MemberExpression) GetCode(dataKey string) (keys []string, root string) {
 	}
 
 	return
+}
+
+// 返回读取变量的代码: 如lookInterface(this, "a")
+func (p MemberExpression) GetCode(dataKey string) (code string) {
+	root, keys := p.GetKey(dataKey)
+	return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
 }
 
 // a.b.c这样的读取成员变量表达式

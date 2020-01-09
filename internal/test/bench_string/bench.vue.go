@@ -3,6 +3,8 @@
 
 package bench_string
 
+import "bytes"
+
 func (r *Render) Component_bench(options *Options) string {
 	this := extendMap(r.Prototype, options.Props)
 	_ = this
@@ -10,11 +12,11 @@ func (r *Render) Component_bench(options *Options) string {
 		PropsClass: map[string]interface{}{"a": true},
 		Class:      []string{"b"},
 		Slot: map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string {
-			return "<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": 1}) + ">\n        " + interfaceToStr(lookInterface(this, "data", "msg"), true) + "\n    </span>" + func() string {
-				var c = ""
+			return "<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": "1"}) + ">\n        " + interfaceToStr(lookInterface(this, "data", "msg"), true) + "\n    </span>" + func() string {
+				var b bytes.Buffer
 
 				for index, item := range interface2Slice(lookInterface(this, "data", "c")) {
-					c += func(xdata map[string]interface{}) string {
+					b.WriteString(func(xdata map[string]interface{}) string {
 						this := extendMap(xdata, map[string]interface{}{
 							"$index": index,
 							"item":   item,
@@ -26,9 +28,9 @@ func (r *Render) Component_bench(options *Options) string {
 							P:     options,
 							Data:  this,
 						}) + "</div>"
-					}(this)
+					}(this))
 				}
-				return c
+				return b.String()
 			}()
 		}},
 		P:    options,

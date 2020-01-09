@@ -246,9 +246,10 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			}
 			childCode, childNamedSlotCode := c.GenEleCode(v)
 			if defaultSlotCode != "" {
-				defaultSlotCode += "+"
+				defaultSlotCode += "+" + childCode
+			} else {
+				defaultSlotCode = childCode
 			}
-			defaultSlotCode += childCode
 
 			for k, v := range childNamedSlotCode {
 				namedSlotCode[k] = v
@@ -420,19 +421,19 @@ func genVFor(e *VFor, srcCode string) (code string) {
 
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
 	return fmt.Sprintf(`func ()string{
-  var c = ""
+  var b strings.Builder
 
   for index, item := range interface2Slice(%s) {
-    c += func(xdata map[string]interface{}) string{
+    b.WriteString(func(xdata map[string]interface{}) string{
         %s := extendMap(xdata, map[string]interface{}{
           "%s": index,
           "%s": item,
         })
 
         return %s
-    }(%s)
+    }(%s))
   }
-return c
+return b.String()
 }()`, vfArrayCode, DataKey, vfIndex, vfItem, srcCode, DataKey)
 }
 
