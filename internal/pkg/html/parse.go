@@ -1751,6 +1751,7 @@ func inCellIM(p *parser) bool {
 }
 
 // Section 12.2.6.4.16.
+// modified: 修改在select域里面可以使用任何标签, 解决slot无法放在select里的问题.
 func inSelectIM(p *parser) bool {
 	switch p.tok.Type {
 	case TextToken:
@@ -1789,6 +1790,8 @@ func inSelectIM(p *parser) bool {
 			return true
 		case a.Script, a.Template:
 			return inHeadIM(p)
+		default:
+			p.addElement()
 		}
 	case EndTagToken:
 		switch p.tok.DataAtom {
@@ -1812,6 +1815,8 @@ func inSelectIM(p *parser) bool {
 			p.resetInsertionMode()
 		case a.Template:
 			return inHeadIM(p)
+		default:
+			p.oe.pop()
 		}
 	case CommentToken:
 		p.addChild(&Node{

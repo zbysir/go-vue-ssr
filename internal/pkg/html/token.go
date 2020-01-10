@@ -1142,6 +1142,7 @@ func (z *Tokenizer) TagName() (name []byte, hasAttr bool) {
 			s := z.buf[z.data.start:z.data.end]
 			z.data.start = z.raw.end
 			z.data.end = z.raw.end
+			// modified: 不小写tagName
 			return s, z.nAttrReturned < len(z.attr)
 		}
 	}
@@ -1159,6 +1160,7 @@ func (z *Tokenizer) TagAttr() (key, val []byte, moreAttr bool) {
 			z.nAttrReturned++
 			key = z.buf[x[0].start:x[0].end]
 			val = z.buf[x[1].start:x[1].end]
+			// modified: 不小写key
 			return key, unescape(convertNewlines(val), true), z.nAttrReturned < len(z.attr)
 		}
 	}
