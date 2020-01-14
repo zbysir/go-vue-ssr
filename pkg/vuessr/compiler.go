@@ -293,9 +293,10 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 	} else if e.TagName == "__string" {
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
+		text = quote(text)
 		// 处理变量
 		text = injectVal(text)
-		eleCode = fmt.Sprintf(`"%s"`, text)
+		eleCode = fmt.Sprintf(`%s`, text)
 	} else {
 		// 基础html标签
 
@@ -471,7 +472,7 @@ func (a *Compiler) AddComponent(name string) {
 	a.Components[compName] = compName
 }
 
-// 处理 Mustache {{}} 差值
+// 处理 Mustache {{}} 插值
 func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`{{.+?}}`)
 
@@ -486,4 +487,11 @@ func injectVal(src string) (to string) {
 	})
 
 	return src
+}
+
+// 包裹字符串
+// 需要处理如: 将"变为 \"
+func quote(s string) (to string) {
+	to = `"` + strings.ReplaceAll(s, `"`, `\"`) + `"`
+	return
 }

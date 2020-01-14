@@ -11,6 +11,7 @@ func NewRender() *Render {
 		"directive":  r.Component_directive,
 		"helloworld": r.Component_helloworld,
 		"page":       r.Component_page,
+		"select":     r.Component_select,
 		"slot":       r.Component_slot,
 		"text":       r.Component_text,
 		"v-for":      r.Component_vFor,
