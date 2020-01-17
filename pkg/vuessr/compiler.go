@@ -261,78 +261,88 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		defaultSlotCode = `""`
 	}
 
-	// 调用组件
-	componentName, exist := c.Components[e.TagName]
-
-	if exist {
-		options := OptionsGen{
-			Class:           e.Class,
-			Attrs:           e.Attrs,
-			Props:           e.Props,
-			Style:           e.Style,
-			DefaultSlotCode: defaultSlotCode,
-			NamedSlotCode:   namedSlotCode,
-			Directives:      e.Directives,
-			VOn:             e.VOn,
-		}
-		optionsCode := options.ToGoCode()
-		eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
-	} else if e.TagName == "template" {
-		// template支持自定义指令, 可以用于设置数据等
-		if len(e.Directives) != 0 {
-			options := OptionsGen{
-				DefaultSlotCode: defaultSlotCode,
-				Directives:      e.Directives,
-			}
-			optionsCode := options.ToGoCode()
-			eleCode = fmt.Sprintf("r.Component_template(%s)", optionsCode)
-		} else {
-			// 直接使用子级
-			eleCode = defaultSlotCode
-		}
-	} else if e.TagName == "__string" {
+	switch e.NodeType {
+	case TextNode:
 		// 纯字符串节点
 		text := strings.Replace(e.Text, "\n", `\n`, -1)
 		text = quote(text)
 		// 处理变量
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`%s`, text)
-	} else {
-		// 基础html标签
-
-		// 判断节点是否是动态节点, 动态则使用r.Tag渲染节点, 否则使用字符串拼接
-		// 动态节点
-		// - 自定义指令: 在指令中会修改任何一个属性(class/style/attr...), 所以是动态的
-		// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
-
-		// 动态节点
-		if e.IsRoot || len(e.Directives) != 0 || len(e.VOn) != 0 {
+	case DocumentNode:
+		log.Infof("DocumentNode %+v", e)
+	case ElementNode:
+		// 判断是否是自定义组件
+		componentName, exist := c.Components[e.TagName]
+		if exist {
 			options := OptionsGen{
-				Props:           e.Props,
-				Attrs:           e.Attrs,
 				Class:           e.Class,
+				Attrs:           e.Attrs,
+				Props:           e.Props,
 				Style:           e.Style,
-				Slot:            nil,
 				DefaultSlotCode: defaultSlotCode,
 				NamedSlotCode:   namedSlotCode,
 				Directives:      e.Directives,
 				VOn:             e.VOn,
 			}
-
 			optionsCode := options.ToGoCode()
-
-			eleCode = fmt.Sprintf(`r.Tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
-		} else {
-			// 静态节点
-			attrs := genAttrCode(e)
-			children := defaultSlotCode
-			if e.VHtml != "" {
-				children = genVHtml(e.VHtml)
-			} else if e.VText != "" {
-				children = genVText(e.VText)
+			eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
+		} else if e.TagName == "template" {
+			if len(e.Directives) != 0 {
+				options := OptionsGen{
+					DefaultSlotCode: defaultSlotCode,
+					Directives:      e.Directives,
+				}
+				optionsCode := options.ToGoCode()
+				// template组件支持自定义指令, 可以用于设置数据等
+				eleCode = fmt.Sprintf("r.Component_template(%s)", optionsCode)
+			} else {
+				// 直接使用子级
+				eleCode = defaultSlotCode
 			}
-			eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, children, e.TagName)
+		} else {
+			// 基础html标签
+
+			// 判断节点是否是动态节点, 动态则使用r.Tag渲染节点, 否则使用字符串拼接
+			// 动态节点
+			// - 自定义指令: 在指令中会修改任何一个属性(class/style/attr...), 所以是动态的
+			// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
+
+			// 动态节点
+			if e.IsRoot || len(e.Directives) != 0 || len(e.VOn) != 0 {
+				options := OptionsGen{
+					Props:           e.Props,
+					Attrs:           e.Attrs,
+					Class:           e.Class,
+					Style:           e.Style,
+					Slot:            nil,
+					DefaultSlotCode: defaultSlotCode,
+					NamedSlotCode:   namedSlotCode,
+					Directives:      e.Directives,
+					VOn:             e.VOn,
+				}
+
+				optionsCode := options.ToGoCode()
+
+				eleCode = fmt.Sprintf(`r.Tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
+			} else {
+				// 静态节点
+				attrs := genAttrCode(e)
+				children := defaultSlotCode
+				if e.VHtml != "" {
+					children = genVHtml(e.VHtml)
+				} else if e.VText != "" {
+					children = genVText(e.VText)
+				}
+				eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, children, e.TagName)
+			}
 		}
+
+	case CommentNode:
+	case DoctypeNode:
+		eleCode = fmt.Sprintf(`"<!doctype %s>"`, e.DocType)
+	default:
+		panic(fmt.Sprintf("bad nodeType, %+v", e))
 	}
 
 	// 优先级 vSlot > vIf > vFor, 所以先处理VFor

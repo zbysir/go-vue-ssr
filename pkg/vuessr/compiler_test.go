@@ -3,7 +3,7 @@ package vuessr
 import "testing"
 
 func TestParseVueVif(t *testing.T) {
-	e, err := ParseVue(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base\vif.vue`)
+	e, err := ParseVue(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\test\vue\page.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}

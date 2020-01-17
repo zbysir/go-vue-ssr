@@ -10,8 +10,10 @@ import (
 
 type VueElement struct {
 	IsRoot           bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
+	NodeType         NodeType
 	TagName          string
 	Text             string
+	DocType          string
 	Attrs            map[string]string // 除去指令/props/style/class之外的属性
 	AttrsKeys        []string          // 属性的key, 用来保证顺序
 	Directives       []Directive       // 自定义指令, 运行时
@@ -137,9 +139,21 @@ func (p Props) CanBeAttr() Props {
 	return a
 }
 
+type NodeType int
+
+const (
+	TextNode NodeType = iota + 1
+	DocumentNode
+	ElementNode
+	CommentNode
+	DoctypeNode
+)
+
 type Element struct {
-	Text     string // 只是字
-	TagName  string
+	NodeType NodeType
+	TagName  string // 节点类型: html基础节点如div/span/input, 也可能是自定义组件
+	Text     string // 字节点的值
+	DocType  string // 特殊的docType值
 	Attrs    []html.Attribute
 	Children []*Element
 	// 是否是root节点
@@ -183,9 +197,7 @@ func (e *Element) hasOnlyOneChildren() bool {
 func hNodeToElement(nodes []*html.Node) []*Element {
 	var es []*Element
 	for _, node := range nodes {
-		text := ""
-		tagName := ""
-
+		var e Element
 		omitNode := false
 		switch node.Type {
 		case html.TextNode:
@@ -201,16 +213,27 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 				omitNode = true
 				break
 			}
-			text = node.Data
-			tagName = "__string"
+			e = Element{
+				NodeType: TextNode,
+				Text:     node.Data,
+			}
 		case html.DocumentNode:
-			tagName = "document"
+			e = Element{
+				NodeType: DocumentNode,
+				TagName:  "document",
+			}
 		case html.ElementNode:
-			tagName = node.Data
+			e = Element{
+				NodeType: ElementNode,
+				TagName:  node.Data,
+			}
 		case html.CommentNode:
 			omitNode = true
 		case html.DoctypeNode:
-			omitNode = true
+			e = Element{
+				NodeType: DoctypeNode,
+				DocType:  node.Data,
+			}
 		default:
 			panic(uint32(node.Type))
 		}
@@ -219,7 +242,7 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 			continue
 		}
 
-		var cs []*Element
+		var children []*Element
 		if node.FirstChild != nil {
 			c := node.FirstChild
 			var allC []*html.Node
@@ -228,15 +251,13 @@ func hNodeToElement(nodes []*html.Node) []*Element {
 				c = c.NextSibling
 			}
 
-			cs = hNodeToElement(allC)
+			children = hNodeToElement(allC)
 		}
 
-		es = append(es, &Element{
-			Text:     text,
-			TagName:  tagName,
-			Attrs:    node.Attr,
-			Children: cs,
-		})
+		e.Children = children
+		e.Attrs = node.Attr
+
+		es = append(es, &e)
 	}
 	return es
 }
@@ -308,10 +329,11 @@ func ParseVue(filename string) (v *VueElement, err error) {
 		}
 		v = p.Parse(es[0])
 	} else {
-		// 如果是多个节点, 则自动添加template包裹
+		// 如果是多个节点, 则自动添加template包裹, 作为入口
 		// 这种情况下不会存在root节点
 		e := &Element{
 			TagName:  "template",
+			NodeType: ElementNode,
 			Children: es,
 		}
 		v = p.Parse(e)
@@ -509,8 +531,10 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 
 		v := &VueElement{
 			IsRoot:           e.Root,
+			NodeType:         e.NodeType,
 			TagName:          e.TagName,
 			Text:             e.Text,
+			DocType:          e.DocType,
 			Attrs:            attrs,
 			AttrsKeys:        attrsKeys,
 			Directives:       ds,
@@ -535,8 +559,8 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			ifVueEle = v
 		} else {
 			// 如果有vif环境了, 但是中间跳过了, 则需要取消掉vif环境 (v-else 必须与v-if 相邻)
-			isEmptyNode := e.TagName == "__string" && len(strings.Trim(e.Text, "\n ")) != 0
-			if !isEmptyNode && vElse == nil && vElseIf == nil {
+			skipNode := e.NodeType == CommentNode
+			if !skipNode && vElse == nil && vElseIf == nil {
 				ifVueEle = nil
 			}
 		}
