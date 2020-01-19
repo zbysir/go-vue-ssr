@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetAST(t *testing.T) {
-	node, err := GetAST(`(a.b[c])`)
+	node, err := GetAST(`(a.b[c-1])`)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -105,7 +105,8 @@ func (p MemberExpression) GetKey(dataKey string) (root string, keys []string) {
 	case MemberExpression:
 		currKey = fmt.Sprintf("interfaceToStr(%s)", t.GetCode(dataKey))
 	default:
-		panic(t)
+		currKey = fmt.Sprintf("interfaceToStr(%s)", genGoCodeByNode(p.Property, dataKey))
+		//panic(t)
 	}
 
 	root = ""
