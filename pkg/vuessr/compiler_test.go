@@ -12,3 +12,7 @@ func TestParseVueVif(t *testing.T) {
 	t.Log(code)
 	return
 }
+
+func TestQuote(t *testing.T) {
+	t.Log(quote(` '"a""{{b + "" +c }} "c" {{d}}`))
+}

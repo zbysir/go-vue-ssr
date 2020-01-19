@@ -173,7 +173,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 type Options struct {
 	Props      Props                    // 本节点的数据(不包含class和style)
 	PropsClass interface{}              // :class
-	PropsStyle interface{}              // :style
+	PropsStyle map[string]interface{}   // :style
 	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
 	Class      []string                 // 本节点静态class
 	Style      map[string]string        // 本节点静态style
@@ -254,12 +254,10 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 
 	if options != nil {
 		// 上层传递的props
-		if options.Props != nil {
-			if options.PropsClass != nil {
-				for _, c := range getClassFromProps(options.PropsClass) {
-					if c != "" {
-						class = append(class, c)
-					}
+		if options.PropsClass != nil {
+			for _, c := range getClassFromProps(options.PropsClass) {
+				if c != "" {
+					class = append(class, c)
 				}
 			}
 		}
@@ -281,9 +279,8 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 	return
 }
 
-
 // 构建style, 生成如style="color: red"的代码, 如果style代码为空 则只会返回空字符串
-func mixinStyle(options *Options, staticStyle map[string]string, styleProps interface{}) (str string) {
+func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[string]interface{}) (str string) {
 	style := map[string]string{}
 
 	// 静态
@@ -299,12 +296,10 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps inte
 
 	if options != nil {
 		// 上层传递的props
-		if options.Props != nil {
-			if options.PropsStyle != nil {
-				ps := getStyleFromProps(options.PropsStyle)
-				for k, v := range ps {
-					style[k] = v
-				}
+		if options.PropsStyle != nil {
+			ps := getStyleFromProps(options.PropsStyle)
+			for k, v := range ps {
+				style[k] = v
 			}
 		}
 
@@ -405,13 +400,9 @@ func genAttr(attr map[string]string) string {
 	return st
 }
 
-func getStyleFromProps(styleProps interface{}) map[string]string {
-	pm, ok := styleProps.(map[string]interface{})
-	if !ok {
-		return nil
-	}
+func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
 	st := map[string]string{}
-	for k, v := range pm {
+	for k, v := range styleProps {
 		switch v := v.(type) {
 		case string:
 			st[k] = escape(v)
