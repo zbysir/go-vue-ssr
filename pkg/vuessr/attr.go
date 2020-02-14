@@ -66,7 +66,7 @@ func genAttrCode(e *VueElement) string {
 		} else if staticClassCode == "nil" {
 			classCode = ``
 		} else {
-			classCode = safeStringCode(fmt.Sprintf(`" class="%s"`, strings.Join(e.Class, " ")))
+			classCode = safeStringCode(fmt.Sprintf(` class="%s"`, strings.Join(e.Class, " ")))
 		}
 	}
 	// style
@@ -101,7 +101,7 @@ func genAttrCode(e *VueElement) string {
 		} else if staticAttrCode == "nil" {
 			attrCode = ``
 		} else {
-			attrCode = safeStringCode(fmt.Sprintf(`%s`, genAttr(e.Attrs, e.AttrsKeys)))
+			attrCode = safeStringCode(fmt.Sprintf(` %s`, genAttr(e.Attrs, e.AttrsKeys)))
 		}
 	}
 
