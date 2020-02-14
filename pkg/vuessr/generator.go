@@ -30,13 +30,13 @@ func genComponentRenderFunc(c *Compiler, pkgName, name string, file string, srcH
 		"%s:= extendMap(r.Prototype, options.Props)\n_ = %s\n"+ // 声明this
 		"return %s"+
 		"}", srcHash, pkgName, name, DataKey, DataKey, code))
-	formatted, err := format.Source(f)
+	f, err = format.Source(f)
 	if err != nil {
 		log.Errorf("format.Source [%s] err:%+v, src:%s", name, err, f)
 		return f
 	}
 
-	return formatted
+	return f
 }
 
 func tuoFeng2SheXing(src string) (outStr string) {

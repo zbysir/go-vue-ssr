@@ -66,7 +66,7 @@ func genAttrCode(e *VueElement) string {
 		} else if staticClassCode == "nil" {
 			classCode = ``
 		} else {
-			classCode = fmt.Sprintf(`" class=\"%s\""`, strings.Join(e.Class, " "))
+			classCode = safeStringCode(fmt.Sprintf(`" class="%s"`, strings.Join(e.Class, " ")))
 		}
 	}
 	// style
@@ -87,7 +87,7 @@ func genAttrCode(e *VueElement) string {
 		} else if staticStyleCode == "nil" {
 			styleCode = ``
 		} else {
-			styleCode = fmt.Sprintf(`" style=\"%s\""`, genStyle(e.Style, e.StyleKeys))
+			styleCode = safeStringCode(fmt.Sprintf(` style="%s"`, genStyle(e.Style, e.StyleKeys)))
 		}
 	}
 	// attr
@@ -101,12 +101,12 @@ func genAttrCode(e *VueElement) string {
 		} else if staticAttrCode == "nil" {
 			attrCode = ``
 		} else {
-			attrCode = fmt.Sprintf(`" %s"`, genAttr(e.Attrs, e.AttrsKeys))
+			attrCode = safeStringCode(fmt.Sprintf(`%s`, genAttr(e.Attrs, e.AttrsKeys)))
 		}
 	}
 
 	if classCode != `` {
-		a += classCode
+		a = classCode
 	}
 
 	// 样式
@@ -148,11 +148,12 @@ func genAttr(attr map[string]string, keys []string) string {
 	for _, k := range keys {
 		v := attr[k]
 		if v != "" {
-			c += fmt.Sprintf(`%s=\"%s\"`, k, v)
+			c += fmt.Sprintf(`%s="%s"`, k, v)
 		} else {
 			c += fmt.Sprintf(`%s`, k)
 		}
 	}
+	//c = safeStringCode(c)
 	return c
 
 }

@@ -18,8 +18,8 @@ func TestGenAllFile(t *testing.T) {
 func TestGenComponentRenderFunc(t *testing.T) {
 	app := NewCompiler()
 
-	code := genComponentRenderFunc(app, "gebera", "xx", `Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\example\base\directive.vue`,"")
-	t.Log(code)
+	code := genComponentRenderFunc(app, "gebera", "xx", `Z:\golang\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\test\vue\svg.vue`,"")
+	t.Logf("%s", code)
 }
 
 func TestShouldLookInterface(t *testing.T) {
