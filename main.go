@@ -4,7 +4,7 @@ import (
 	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
 	"github.com/bysir-zl/go-vue-ssr/internal/version"
 	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"os"
 )
 
