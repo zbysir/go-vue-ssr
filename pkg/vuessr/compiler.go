@@ -266,7 +266,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		// 纯字符串节点
 		// 将文本处理成go代码的字符串写法: "xxx"
 		// 注意{{表达式中的"不应该被处理, 因为这是js代码, 需要解析成为JS AST.
-		text := quote(e.Text)
+		text := safeStringCode(e.Text)
 		// 处理变量
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`%s`, text)
@@ -503,10 +503,9 @@ func injectVal(src string) (to string) {
 // 包裹字符串
 // 需要处理如: 将"变为 \"
 // 跳过处理{{表达式中的字符串.
-func quote(s string) (to string) {
+func safeStringCode(s string) (to string) {
 	var t strings.Builder
 	for _, v := range strings.Split(s, "{{") {
-
 		sp := strings.Split(v, "}}")
 		if len(sp) == 2 {
 			// 跳过处理{{表达式中的字符串.
