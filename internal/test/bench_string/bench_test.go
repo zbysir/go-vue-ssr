@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"go.zhuzi.me/go/util"
 	"testing"
 )
 
@@ -35,7 +34,8 @@ func BenchmarkString(b *testing.B) {
 		C:   ds,
 		Msg: "1",
 	}
-	util.CopyObj(d, &ii)
+	bs, _ := json.Marshal(d)
+	json.Unmarshal(bs, &ii)
 
 	r := NewRender()
 
@@ -100,8 +100,8 @@ func BenchmarkString2(b *testing.B) {
 
 		index++
 	}
-
-	util.CopyObj(d, &ii)
+	bs, _ := json.Marshal(d)
+	json.Unmarshal(bs, &ii)
 
 	r := NewRender()
 

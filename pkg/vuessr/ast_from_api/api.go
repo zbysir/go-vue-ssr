@@ -89,7 +89,7 @@ func (p Property) GetKey() string {
 }
 
 // 解析js代码: `a.b.c.d[e]`
-// 返回 keys表示读取的路径, `["a", "b", "c", "d", interfaceToStr(lookInterface(this, "d"))]`
+// 返回 keys表示读取的路径, `["a", "b", "c", "d", interfaceToStr(lookInterface(this, "e"))]`
 // root表示读取的对象, 支持变量/字面量/字面对象
 func (p MemberExpression) GetKey(dataKey string) (root string, keys []string) {
 	currKey := ""
