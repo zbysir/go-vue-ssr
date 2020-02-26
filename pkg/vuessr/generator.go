@@ -406,7 +406,7 @@ func (r *Render) Component_template(options *Options) string {
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 	// todo 现没有考虑作用在自定义组件上的指令
 	// exec directive
 	if len(options.Directives) != 0 {

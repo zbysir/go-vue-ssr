@@ -1,12 +1,10 @@
 package ast
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/robertkrimen/otto/ast"
 	"github.com/robertkrimen/otto/parser"
 	"github.com/robertkrimen/otto/token"
-	"log"
 	"strings"
 )
 
@@ -33,23 +31,21 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 		return genGoCodeByNode(t.Expression, dataKey)
 	case *ast.Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
-	//case ast.MemberExpression:
-	//	c:= t.GetCode(dataKey)
-	//	return c
 	case *ast.DotExpression:
-		root, keys := GetKey(t, dataKey)
+		root, keys := lookExpress(t, dataKey)
 		return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
-	//case *ast.BracketExpression:
-	//
+	case *ast.BracketExpression:
+		// a[b]
+		root, keys := lookExpress(t, dataKey)
+		return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
 	case *ast.StringLiteral:
-		// js的字符串可以用'', 但go中必须是"", 所以需要替换
-		c := t.Value
-		//if strings.HasPrefix(c, "'") {
-		//	c = `"` + c[1:len(c)-1] + `"`
-		//}
-		return `"` + c + `"`
+		return fmt.Sprintf(`"%s"`, t.Value)
 	case *ast.NumberLiteral:
 		return fmt.Sprintf("%v", t.Value)
+	case *ast.BooleanLiteral:
+		return fmt.Sprintf("%v", t.Value)
+	case *ast.NullLiteral:
+		return fmt.Sprintf("%v", "nil")
 	//case ast.LogicalExpression:
 	//	left := genGoCodeByNode(t.Left, dataKey)
 	//	right := genGoCodeByNode(t.Right, dataKey)
@@ -72,10 +68,14 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 			return fmt.Sprintf(`interfaceToFloat(%s) * interfaceToFloat(%s)`, left, right)
 		case token.SLASH:
 			return fmt.Sprintf(`interfaceToFloat(%s) / interfaceToFloat(%s)`, left, right)
+		case token.LOGICAL_AND, token.LOGICAL_OR:
+			return fmt.Sprintf(`interfaceToBool(%s) %s interfaceToBool(%s)`, left, t.Operator, right)
+		case token.LESS, token.GREATER:
+			return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, t.Operator, right)
+		default:
+			panic(fmt.Sprintf("bad Operator for BinaryExpression: %s", o))
 		}
 
-		// 可以优化: interfaceToStr("1") 为 "1"
-		return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, o, right)
 	case *ast.UnaryExpression:
 		arg := genGoCodeByNode(t.Operand, dataKey)
 		switch t.Operator {
@@ -97,23 +97,27 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 		mapCode += "{"
 		for _, v := range t.Value {
 			k := ""
-			if v.Kind != "" {
-				//k = fmt.Sprintf("interfaceToStr(%s)", genGoCodeByNode(v.Value, dataKey))
-			} else {
+
+			switch v.Kind {
+			case "value":
 				k = fmt.Sprintf(`"%s"`, v.Key)
+			default:
+				panic(fmt.Sprintf("bad Value kind of ObjectLiteral: %v", v.Kind))
 			}
+
 			valueCode := genGoCodeByNode(v.Value, dataKey)
 			mapCode += fmt.Sprintf(`%s: %s,`, k, valueCode)
 		}
 		mapCode += "}"
 		return mapCode
 	case *ast.CallExpression:
-		name := "x"
+		funcName := genGoCodeByNode(t.Callee, dataKey)
+
 		args := make([]string, len(t.ArgumentList))
 		for i, v := range t.ArgumentList {
 			args[i] = genGoCodeByNode(v, dataKey)
 		}
-		return fmt.Sprintf(`interfaceToFunc(lookInterface(%s,"%s"))(%s)`, dataKey, name, strings.Join(args, ","))
+		return fmt.Sprintf(`interfaceToFunc(%s)(%s)`, funcName, strings.Join(args, ","))
 	case *ast.ArrayLiteral:
 		args := make([]string, len(t.Value))
 		for i, v := range t.Value {
@@ -121,25 +125,100 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 		}
 		return fmt.Sprintf(`[]interface{}{%s}`, strings.Join(args, ","))
 	case *ast.ConditionalExpression:
+		// 三元运算
 		consequent := genGoCodeByNode(t.Consequent, dataKey)
 		alternate := genGoCodeByNode(t.Alternate, dataKey)
 		test := genGoCodeByNode(t.Test, dataKey)
 
 		return fmt.Sprintf(`func() interface{} {if interfaceToBool(%s){return %s};return %s}()`, test, consequent, alternate)
+
 	default:
-		//panic(t)
-		bs,_:=json.Marshal(t)
-		log.Panicf("%s", bs)
+		panic(fmt.Sprintf("bad type %T for genGoCodeByNode", t))
+		//bs, _ := json.Marshal(t)
+		//log.Panicf("%s", bs)
 	}
 	return
 }
 
-func GetKey(p *ast.DotExpression, dataKey string) (root string, keys []string) {
+// 处理 a[b] 表达式
+// tip: root可能是this: `a.b`, 也可能是字面量`"xxx".length`
+func GetBracketExpressionKey(p *ast.BracketExpression, dataKey string) (root string, keys []string) {
+	// a[b]中的b
+	var currKey string
+	switch m := p.Member.(type) {
+	case *ast.StringLiteral:
+		// a['b']
+		// 也可以走default语句, 但这是fastPath, 可以少调用interfaceToStr函数
+		currKey = m.Literal
+	default:
+		// a[b]
+		// a[a+1]
+		// ... 各种表达式
+		currKey = fmt.Sprintf(`interfaceToStr(%s)`, genGoCodeByNode(p.Member, dataKey))
+	}
 
-	//switch t:=p.Identifier
+	root, keys = lookExpress(p.Left, dataKey)
+	keys = append(keys, currKey)
 
-	bs, _ := json.MarshalIndent(p, " ", " ")
-	print(string(bs))
+	//
+	//bs, _ := json.MarshalIndent(p, " ", " ")
+	//print(string(bs))
 
-	return "root", []string{"todo"}
+	//fmt.Printf("%+v",p)
+	return root, keys
+}
+
+// 读取值
+// 将a.b.c解析成 root 和keys
+// 如a.b.c, root: this, keys: [a ,b ,c]
+// 如"a".length, root: "a", keys: [length]
+func lookExpress(e ast.Expression, dataKey string) (root string, keys []string) {
+	switch r := e.(type) {
+	case *ast.DotExpression:
+		// a.b 中的b
+		currKey := fmt.Sprintf(`"%s"`, r.Identifier.Name)
+		root, keys = lookExpress(r.Left, dataKey)
+		keys = append(keys, currKey)
+	case *ast.Identifier:
+		// a.b 中的a
+		// 使用dataKey读取变量
+		root = dataKey
+		keys = []string{fmt.Sprintf(`"%s"`, r.Name)}
+	case *ast.ObjectLiteral:
+		root = genGoCodeByNode(r, dataKey)
+	case *ast.BinaryExpression:
+		root = genGoCodeByNode(r, dataKey)
+	case *ast.BracketExpression:
+		var currKey string
+		switch m := r.Member.(type) {
+		case *ast.StringLiteral:
+			// a['b']
+			// 也可以走default语句, 但这是fastPath, 可以少调用interfaceToStr函数
+			currKey = fmt.Sprintf(`"%s"`, m.Value)
+		default:
+			// a[b]
+			// a[a+1]
+			// ... 各种表达式
+			currKey = fmt.Sprintf(`interfaceToStr(%s)`, genGoCodeByNode(r.Member, dataKey))
+		}
+
+		root, keys = lookExpress(r.Left, dataKey)
+		keys = append(keys, currKey)
+	default:
+		panic(fmt.Sprintf("bad type for lookExpress: %T, %s", r, r))
+	}
+
+	return
+}
+
+// 处理 a.b 表达式
+// tip: root可能是this: `a.b`, 也可能是字面量`"xxx".length`
+func GetDotExpressionKey(p *ast.DotExpression, dataKey string) (root string, keys []string) {
+	// a.b 中的b
+	currKey := fmt.Sprintf(`"%s"`, p.Identifier.Name)
+
+	root, keys = lookExpress(p.Left, dataKey)
+	keys = append(keys, currKey)
+
+	return root, keys
 }

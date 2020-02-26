@@ -325,7 +325,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 				optionsCode := options.ToGoCode()
 
-				eleCode = fmt.Sprintf(`r.Tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
+				eleCode = fmt.Sprintf(`r.tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAttrCode(e)

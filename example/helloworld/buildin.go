@@ -119,7 +119,7 @@ func (r *Render) Component_template(options *Options) string {
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
+func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 	// todo 现没有考虑作用在自定义组件上的指令
 	// exec directive
 	if len(options.Directives) != 0 {
@@ -173,7 +173,7 @@ func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
 type Options struct {
 	Props      Props                    // 本节点的数据(不包含class和style)
 	PropsClass interface{}              // :class
-	PropsStyle interface{}              // :style
+	PropsStyle map[string]interface{}   // :style
 	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
 	Class      []string                 // 本节点静态class
 	Style      map[string]string        // 本节点静态style
@@ -247,14 +247,16 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 
 	// 本身的props
 	for _, c := range getClassFromProps(classProps) {
-		class = append(class, c)
+		if c != "" {
+			class = append(class, c)
+		}
 	}
 
 	if options != nil {
 		// 上层传递的props
-		if options.Props != nil {
-			if options.PropsClass != nil {
-				for _, c := range getClassFromProps(options.PropsClass) {
+		if options.PropsClass != nil {
+			for _, c := range getClassFromProps(options.PropsClass) {
+				if c != "" {
 					class = append(class, c)
 				}
 			}
@@ -278,7 +280,7 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 }
 
 // 构建style, 生成如style="color: red"的代码, 如果style代码为空 则只会返回空字符串
-func mixinStyle(options *Options, staticStyle map[string]string, styleProps interface{}) (str string) {
+func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[string]interface{}) (str string) {
 	style := map[string]string{}
 
 	// 静态
@@ -294,12 +296,10 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps inte
 
 	if options != nil {
 		// 上层传递的props
-		if options.Props != nil {
-			if options.PropsStyle != nil {
-				ps := getStyleFromProps(options.PropsStyle)
-				for k, v := range ps {
-					style[k] = v
-				}
+		if options.PropsStyle != nil {
+			ps := getStyleFromProps(options.PropsStyle)
+			for k, v := range ps {
+				style[k] = v
 			}
 		}
 
@@ -400,13 +400,9 @@ func genAttr(attr map[string]string) string {
 	return st
 }
 
-func getStyleFromProps(styleProps interface{}) map[string]string {
-	pm, ok := styleProps.(map[string]interface{})
-	if !ok {
-		return nil
-	}
+func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
 	st := map[string]string{}
-	for k, v := range pm {
+	for k, v := range styleProps {
 		switch v := v.(type) {
 		case string:
 			st[k] = escape(v)

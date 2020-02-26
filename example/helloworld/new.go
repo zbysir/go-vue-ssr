@@ -2,6 +2,15 @@
 
 package main
 
-func NewRender() *Render{r:=&Render{}
-r.Components = map[string]ComponentFunc{"component": r.Component_component,"info": r.Component_info,"page": r.Component_page,"slot": r.Component_slot,"v-on": r.Component_vOn,"vOn": r.Component_vOn,}
-return r}
+func NewRender() *Render {
+	r := &Render{}
+	r.Components = map[string]ComponentFunc{
+		"component": r.Component_component,
+		"info":      r.Component_info,
+		"page":      r.Component_page,
+		"slot":      r.Component_slot,
+		"v-on":      r.Component_vOn,
+		"vOn":       r.Component_vOn,
+	}
+	return r
+}

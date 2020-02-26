@@ -2,12 +2,15 @@ package ast_from_api
 
 import (
 	"fmt"
+	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr/ast"
 	"strings"
 )
 
 // 生成go代码
 // dataKey: 默认为options.data
 func Js2Go(code string, dataKey string) (goCode string, err error) {
+	return ast.Js2Go(code, dataKey)
+
 	// 用括号包裹的原因是让"{x: 1}"这样的语法解析成对象, 而不是label
 	code = fmt.Sprintf("(%s)", code)
 	node, err := GetAST(code)
@@ -37,7 +40,7 @@ func genGoCodeByNode(node Node, dataKey string) (goCode string) {
 	case Identifier:
 		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
 	case MemberExpression:
-		c:= t.GetCode(dataKey)
+		c := t.GetCode(dataKey)
 		return c
 	case Literal:
 		// js的字符串可以用'', 但go中必须是"", 所以需要替换
