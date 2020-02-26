@@ -1,8 +1,0 @@
-{
-  "dependencies": {
-    "acorn": "^7.1.0",
-    "koa": "^2.11.0",
-    "koa-body": "^4.1.1",
-    "koa-bodyparser": "^4.2.1"
-  }
-}

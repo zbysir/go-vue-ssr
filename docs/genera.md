@@ -70,7 +70,8 @@ vue的模板其实是标准的html.
 ### 处理js
 在v-if或者\{\{}}中需要使用一些简单的js表达式, 如 v-if="a!=b && a!=c", 这样的表达式需要翻译成golang才能运行, 翻译成golang需要使用到js的AST,
 
-最开始的想法是使用golang实现或者找一个现有的库去解析JS, 但奈何没有找到, 实现起来也十分麻烦, 所以还是使用Node+acorn封装了一个API供以调用.
+使用golang的库`github.com/robertkrimen/otto`实现解析js代码, 没有使用node+web server实现的原因是内联的golang库性能更好, 但缺点是不支持ES6的高级语法, 如`{[a]: 1}`,
+请避免在模板中使用这些高级语法.
 
 ### 动态节点 / 静态节点 / 半动态节点
 **静态节点**
