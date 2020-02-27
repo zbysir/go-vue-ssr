@@ -46,9 +46,9 @@ GLOBAL OPTIONS:
 - to: 存放生成代码的目录
 - pkg: go package name
 
-此命令将在当前目录下生成所有需要的Go代码, 也就是运行时不会依赖github.com/bysir-zl/go-vue-ssr包.
+此命令将在当前目录下生成所有需要的Go代码, 也就是运行时不会依赖github.com/zbysir/go-vue-ssr包.
 
-不过在github.com/bysir-zl/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+不过在github.com/zbysir/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
 ```
 a:= map[string]interface{}{
     "info": map[string]interface{}{

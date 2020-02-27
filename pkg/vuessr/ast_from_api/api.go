@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
-	"github.com/bysir-zl/go-vue-ssr/internal/pkg/obj"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/obj"
 	"reflect"
 	"strings"
 )

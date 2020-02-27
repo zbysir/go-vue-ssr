@@ -7,7 +7,7 @@ package html
 import (
 	"bytes"
 	"errors"
-	"github.com/bysir-zl/go-vue-ssr/internal/pkg/html/atom"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/html/atom"
 	"io"
 	"strconv"
 	"strings"

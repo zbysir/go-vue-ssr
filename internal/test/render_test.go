@@ -6,9 +6,9 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bysir-zl/go-vue-ssr/internal/test/tplgo"
-	"github.com/bysir-zl/go-vue-ssr/pkg/ssrtool"
-	"github.com/bysir-zl/go-vue-ssr/pkg/ssrtool/rinterface"
+	"github.com/zbysir/go-vue-ssr/internal/test/tplgo"
+	"github.com/zbysir/go-vue-ssr/pkg/ssrtool"
+	"github.com/zbysir/go-vue-ssr/pkg/ssrtool/rinterface"
 	"testing"
 )
 

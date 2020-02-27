@@ -1,6 +1,6 @@
 package ast_from_api
 
-import "github.com/bysir-zl/go-vue-ssr/internal/pkg/http"
+import "github.com/zbysir/go-vue-ssr/internal/pkg/http"
 
 var client *http.Client
 

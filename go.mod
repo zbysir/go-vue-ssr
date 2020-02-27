@@ -1,4 +1,4 @@
-module github.com/bysir-zl/go-vue-ssr
+module github.com/zbysir/go-vue-ssr
 
 go 1.13
 

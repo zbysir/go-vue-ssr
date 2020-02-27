@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/bysir-zl/go-vue-ssr/internal/pkg/log"
-	"github.com/bysir-zl/go-vue-ssr/internal/version"
-	"github.com/bysir-zl/go-vue-ssr/pkg/vuessr"
 	"github.com/urfave/cli/v2"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
+	"github.com/zbysir/go-vue-ssr/internal/version"
+	"github.com/zbysir/go-vue-ssr/pkg/vuessr"
 	"os"
 )
 

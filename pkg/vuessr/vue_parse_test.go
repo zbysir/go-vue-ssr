@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseVue(t *testing.T) {
-	e, err := ParseVue(`Z:\golang\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\test\vue\svg.vue`)
+	e, err := ParseVue(`Z:\golang\go_path\src\github.com\zbysir\go-vue-ssr\internal\test\vue\svg.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -16,7 +16,7 @@ func TestParseVue(t *testing.T) {
 }
 
 func TestHtml(t *testing.T) {
-	e, err := parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\internal\test\vue\select.vue`)
+	e, err := parseHtml(`Z:\go_path\src\github.com\zbysir\go-vue-ssr\internal\test\vue\select.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestHtml(t *testing.T) {
 }
 
 func TestVif(t *testing.T) {
-	e, err := parseHtml(`Z:\go_path\src\github.com\bysir-zl\go-vue-ssr\test\base\vif.vue`)
+	e, err := parseHtml(`Z:\go_path\src\github.com\zbysir\go-vue-ssr\test\base\vif.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}

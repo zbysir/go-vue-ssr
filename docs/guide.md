@@ -3,7 +3,7 @@
 
 ## Install
 ```
-go get github.com/bysir-zl/go-vue-ssr
+go get github.com/zbysir/go-vue-ssr
 ```
 > 在这一步中可能会使用带代理, 如何为go get设置代理? 关键字: go get proxy
 
