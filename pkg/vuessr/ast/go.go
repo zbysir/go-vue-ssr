@@ -140,34 +140,6 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 	return
 }
 
-// 处理 a[b] 表达式
-// tip: root可能是this: `a.b`, 也可能是字面量`"xxx".length`
-func GetBracketExpressionKey(p *ast.BracketExpression, dataKey string) (root string, keys []string) {
-	// a[b]中的b
-	var currKey string
-	switch m := p.Member.(type) {
-	case *ast.StringLiteral:
-		// a['b']
-		// 也可以走default语句, 但这是fastPath, 可以少调用interfaceToStr函数
-		currKey = m.Literal
-	default:
-		// a[b]
-		// a[a+1]
-		// ... 各种表达式
-		currKey = fmt.Sprintf(`interfaceToStr(%s)`, genGoCodeByNode(p.Member, dataKey))
-	}
-
-	root, keys = lookExpress(p.Left, dataKey)
-	keys = append(keys, currKey)
-
-	//
-	//bs, _ := json.MarshalIndent(p, " ", " ")
-	//print(string(bs))
-
-	//fmt.Printf("%+v",p)
-	return root, keys
-}
-
 // 读取值
 // 将a.b.c解析成 root 和keys
 // 如a.b.c, root: this, keys: [a ,b ,c]
@@ -209,16 +181,4 @@ func lookExpress(e ast.Expression, dataKey string) (root string, keys []string) 
 	}
 
 	return
-}
-
-// 处理 a.b 表达式
-// tip: root可能是this: `a.b`, 也可能是字面量`"xxx".length`
-func GetDotExpressionKey(p *ast.DotExpression, dataKey string) (root string, keys []string) {
-	// a.b 中的b
-	currKey := fmt.Sprintf(`"%s"`, p.Identifier.Name)
-
-	root, keys = lookExpress(p.Left, dataKey)
-	keys = append(keys, currKey)
-
-	return root, keys
 }

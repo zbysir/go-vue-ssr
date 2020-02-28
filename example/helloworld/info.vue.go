@@ -11,6 +11,7 @@ type _ strings.Builder
 
 func (r *Render) Component_info(options *Options) string {
 	this := extendMap(r.Prototype, options.Props)
+	options.Directives.Exec(r, options)
 	_ = this
 	return r.tag("div", true, &Options{
 		Style: map[string]string{"text-align": "center"},

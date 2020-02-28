@@ -7,6 +7,7 @@ func TestGenGoCode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	goCode := genGoCodeByNode(node, "data")
 	t.Log(goCode)
 }

@@ -3,7 +3,7 @@ package vuessr
 import (
 	"fmt"
 	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
-	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast_from_api"
+	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast"
 	"regexp"
 	"sort"
 	"strings"
@@ -109,7 +109,7 @@ func mapJsCodeToCode(m map[string]string) string {
 	props += "{"
 	for _, k := range getSortedKey(m) {
 		v := m[k]
-		valueCode, err := ast_from_api.Js2Go(v, DataKey)
+		valueCode, err := ast.Js2Go(v, DataKey)
 		if err != nil {
 			log.Panicf("%v, %s", err, v)
 		}
@@ -179,7 +179,7 @@ func (o *OptionsGen) ToGoCode() string {
 			valueCode := "nil"
 			if v.Value != "" {
 				var err error
-				valueCode, err = ast_from_api.Js2Go(v.Value, DataKey)
+				valueCode, err = ast.Js2Go(v.Value, DataKey)
 				if err != nil {
 					panic(err)
 				}
@@ -197,7 +197,7 @@ func (o *OptionsGen) ToGoCode() string {
 			// 方法:
 			funcName := v.Func
 			// 参数:
-			args, err := ast_from_api.Js2Go("["+v.Args+"]", DataKey)
+			args, err := ast.Js2Go("["+v.Args+"]", DataKey)
 			if err != nil {
 				panic(err)
 			}
@@ -373,7 +373,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
-	condition, err := ast_from_api.Js2Go(e.Condition, DataKey)
+	condition, err := ast.Js2Go(e.Condition, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -392,7 +392,7 @@ if interfaceToBool(%s) {return %s`, condition, srcCode)
 		case "else":
 			code += fmt.Sprintf(`} else { return %s`, eleCode)
 		case "elseif":
-			condition, err := ast_from_api.Js2Go(v.Condition, DataKey)
+			condition, err := ast.Js2Go(v.Condition, DataKey)
 			if err != nil {
 				panic(err)
 			}
@@ -426,7 +426,7 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	vfArray := e.ArrayKey
 	vfItem := e.ItemKey
 	vfIndex := e.IndexKey
-	vfArrayCode, err := ast_from_api.Js2Go(vfArray, DataKey)
+	vfArrayCode, err := ast.Js2Go(vfArray, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -450,7 +450,7 @@ return b.String()
 }
 
 func genVHtml(value string) (code string) {
-	goCode, err := ast_from_api.Js2Go(value, DataKey)
+	goCode, err := ast.Js2Go(value, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -458,7 +458,7 @@ func genVHtml(value string) (code string) {
 }
 
 func genVText(value string) (code string) {
-	goCode, err := ast_from_api.Js2Go(value, DataKey)
+	goCode, err := ast.Js2Go(value, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -490,7 +490,7 @@ func injectVal(src string) (to string) {
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
 
-		goCode, err := ast_from_api.Js2Go(key, DataKey)
+		goCode, err := ast.Js2Go(key, DataKey)
 		if err != nil {
 			panic(err)
 		}

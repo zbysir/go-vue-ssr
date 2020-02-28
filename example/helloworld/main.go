@@ -30,7 +30,7 @@ func main() {
 		},
 	})
 
-	// will print like below code(formatted):
+	// will print like following code(formatted):
 	// <html lang="zh">
 	// <head>
 	//   <meta charset="UTF-8"></meta>

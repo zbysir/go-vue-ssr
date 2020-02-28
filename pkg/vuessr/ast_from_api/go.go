@@ -2,15 +2,15 @@ package ast_from_api
 
 import (
 	"fmt"
-	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast"
 	"strings"
 )
 
 // 生成go代码
+//
 // dataKey: 默认为options.data
-func Js2Go(code string, dataKey string) (goCode string, err error) {
-	return ast.Js2Go(code, dataKey)
-
+//
+// Deprecated, use ast.Js2Go
+func xxxJs2Go(code string, dataKey string) (goCode string, err error) {
 	// 用括号包裹的原因是让"{x: 1}"这样的语法解析成对象, 而不是label
 	code = fmt.Sprintf("(%s)", code)
 	node, err := GetAST(code)

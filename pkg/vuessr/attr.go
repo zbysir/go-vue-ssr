@@ -2,7 +2,7 @@ package vuessr
 
 import (
 	"fmt"
-	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast_from_api"
+	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast"
 	"strings"
 )
 
@@ -12,7 +12,7 @@ func getPropsClass(props Props) string {
 		return "nil"
 	}
 
-	code, err := ast_from_api.Js2Go(item, DataKey)
+	code, err := ast.Js2Go(item, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +26,7 @@ func getPropsStyle(props Props) string {
 		return "nil"
 	}
 
-	code, err := ast_from_api.Js2Go(item, DataKey)
+	code, err := ast.Js2Go(item, DataKey)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func genAttrCode(e *VueElement) string {
 		classPropsCode := "nil"
 		if classProps != "" {
 			var err error
-			classPropsCode, err = ast_from_api.Js2Go(classProps, DataKey)
+			classPropsCode, err = ast.Js2Go(classProps, DataKey)
 			if err != nil {
 				panic(err)
 			}
@@ -76,7 +76,7 @@ func genAttrCode(e *VueElement) string {
 		stylePropsCode := "nil"
 		if styleProps != "" {
 			var err error
-			stylePropsCode, err = ast_from_api.Js2Go(styleProps, DataKey)
+			stylePropsCode, err = ast.Js2Go(styleProps, DataKey)
 			if err != nil {
 				panic(err)
 			}
