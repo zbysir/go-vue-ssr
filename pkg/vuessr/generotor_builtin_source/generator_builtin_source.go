@@ -1,4 +1,4 @@
-// 此文件不参与编译, 只是作为文本用来生成buildin源码
+// 此文件不参与编译, 只是作为文本用来生成builtin源码
 package main
 
 // begin

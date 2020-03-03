@@ -1,7 +1,7 @@
-//go:generate go run ./generotor_buildin_source/main.go
+//go:generate go run ./generotor_builtin_source/main.go
 package vuessr
 
-const buildinCode = `
+const builtinCode = `
 
 import (
 	"encoding/json"
