@@ -20,7 +20,7 @@ Hey vue go
 
 由于代码洁癖与对于未知事物的好奇, 我初期还是选用的nuxt, 但后来发现它并不是银弹:
 - 前后端同构需要[客户端激活](https://ssr.vuejs.org/zh/guide/hydration.html)步骤, 也就是在前端重新渲染一遍页面, 如果你的网站大多是静态的内容那么这一步就会造成很大的性能浪费(请不要小看客户端激活所带来的性能消耗).
-- 由于不是专职note语言, 所以在面临高级问题上(如并发/缓存)举步维艰, 这对于后期发展不利.
+- 由于不是专职note语言, 所以在面临高级问题上(如并发/缓存)举步维艰, 对利于后期扩展.
 
 > 关于vuessr性能问题可以查阅这两篇文章:
 > - [实测Vue SSR的渲染性能：避开20倍耗时](https://mp.weixin.qq.com/s?__biz=MzUxMzcxMzE5Ng==&mid=2247485601&amp;idx=1&amp;sn=97a45254a771d13789faed81316b465a&source=41#wechat_redirect)
