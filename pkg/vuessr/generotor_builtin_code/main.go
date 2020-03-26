@@ -8,8 +8,8 @@ import (
 )
 
 func main() {
-	sourceFile := "./generotor_builtin_source/generator_builtin_source.go"
-	target := "./generator_builtin_code.go"
+	sourceFile := "./generotor_builtin_code/source.go"
+	target := "./generator_builtin_code_gen.go"
 	pkg := "vuessr"
 	beginTag := []byte("// begin")
 
@@ -24,7 +24,7 @@ func main() {
 
 	source = bytes.Split(source, beginTag)[1]
 
-	to := fmt.Sprintf(`//go:generate go run ./generotor_builtin_source/main.go
+	to := fmt.Sprintf(`// generate by ./generotor_builtin_code/main.go
 package %s
 
 const builtinCode = `+"`%s`", pkg, source)

@@ -1,7 +1,7 @@
-// 此文件不参与编译, 只是作为文本用来生成builtin源码
-package main
+// generate by ./generotor_builtin_code/main.go
+package vuessr
 
-// begin
+const builtinCode = `
 
 import (
 	"encoding/json"
@@ -679,3 +679,4 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 func escape(src string) string {
 	return html.EscapeString(src)
 }
+`
