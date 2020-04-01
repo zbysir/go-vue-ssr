@@ -439,6 +439,7 @@ func getClassFromProps(classProps interface{}) []string {
 				c = append(c, k)
 			}
 		}
+		sort.Strings(c)
 		cs = c
 	case []interface{}:
 		var c []string
