@@ -437,6 +437,7 @@ func getClassFromProps(classProps interface{}) []string {
 				c = append(c, k)
 			}
 		}
+		sort.Strings(c)
 		cs = c
 	case []interface{}:
 		var c []string
@@ -642,6 +643,7 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 
 	switch data := data.(type) {
 	case map[string]interface{}:
+		// 对象
 		c, ok := data[currKey]
 		if !ok {
 			return
@@ -649,6 +651,7 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 
 		return shouldLookInterface(c, keys[1:]...)
 	case []interface{}:
+		// 数组
 		switch currKey {
 		case "length":
 			// length
@@ -659,7 +662,8 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 			if ok != nil {
 				return
 			}
-			if int(index) >= len(data) {
+
+			if int(index) >= len(data) || index < 0 {
 				return
 			}
 			return shouldLookInterface(data[index], keys[1:]...)
