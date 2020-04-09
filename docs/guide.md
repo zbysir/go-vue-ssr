@@ -19,6 +19,8 @@ go-vue-ssr -src=./exaple/helloworld -to=./ -pkg=./ -pkg=vuetpl
 │  new.go -- 注册component的代码
 ```
 
+> tips: 你可以使用 `-watch`参数来启用监听文件变化自动编译.
+
 关于如何使用go-vue-ssr命令请看 [生成](genera.md)
 
 ## Run

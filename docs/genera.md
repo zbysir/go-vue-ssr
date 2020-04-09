@@ -25,7 +25,7 @@ USAGE:
    go-vue-ssr [global options] command [command options] [arguments...]
 
 VERSION:
-   0.0.1
+   0.0.12
 
 DESCRIPTION:
    Hey vue go
@@ -38,17 +38,19 @@ GLOBAL OPTIONS:
    --to value     Dist dir (default: "./internal/vuetpl")
    --pkg value    pkg name
    --help, -h     show help
+   --watch        watch file and rebuild (default: false)
    --version, -v  print the version
 ```
-**参数**
+**参数说明**
 
 - src: 存放vue文件的文件夹, 支持查找子目录, 但不允许重复的文件名(因为文件名会当做组件名).
 - to: 存放生成代码的目录
 - pkg: go package name
+- watch: 启用文件监听来自动编译vue文件
 
 此命令将在当前目录下生成所有需要的Go代码, 也就是运行时不会依赖github.com/zbysir/go-vue-ssr包.
 
-不过在github.com/zbysir/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 如
+不过在github.com/zbysir/go-vue-ssr/pkg/ssrtool里有一些处理动态数据(interface{})的工具方法可以使用, 方便你操作interface, 如
 ```
 a:= map[string]interface{}{
     "info": map[string]interface{}{

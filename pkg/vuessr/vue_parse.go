@@ -268,6 +268,7 @@ func parseHtml(filename string) (es []*Element, err error) {
 	if err != nil {
 		return
 	}
+	defer file.Close()
 
 	var nodes []*html.Node
 

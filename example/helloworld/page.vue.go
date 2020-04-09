@@ -11,15 +11,15 @@ type _ strings.Builder
 
 func (r *Render) Component_page(options *Options) string {
 	this := extendMap(r.Prototype, options.Props)
+	options.Directives.Exec(r, options)
 	_ = this
-	return "<!doctype html><html lang=\"zh\"><head><meta charset=\"UTF-8\"></meta><title>" + interfaceToStr(lookInterface(this, "title"), true) + "</title></head><body><h1 style=\"text-align: center; margin-top: 100px; \">" + interfaceToStr(lookInterface(this, "title")) + "</h1>" +
-		r.Component_info(&Options{
-			Props: map[string]interface{}{"height": interfaceAdd(lookInterface(this, "height"), 1), "logo": lookInterface(this, "logo"), "name": lookInterface(this, "title"), "slogan": lookInterface(this, "slogan")},
-			Style: map[string]string{"padding": "20px"},
-			Slot:  map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
-			P:     options,
-			Data:  this,
-		}) + "<div info> author: " + interfaceToStr(lookInterface(this, "info", "author"), true) + " " + interfaceToStr(lookInterface(this, "info", interfaceToStr(lookInterface(this, "slogan"))), true) + " " + interfaceToStr([]interface{}{lookInterface(this, "slogan")}, true) + "</div>" + r.Component_vOn(&Options{
+	return "<!doctype html><html lang=\"zh\"><head><meta charset=\"UTF-8\"></meta><title>" + interfaceToStr(lookInterface(this, "title"), true) + "</title></head><body><h1 style=\"text-align: center; margin-top: 100px; \">" + interfaceToStr(lookInterface(this, "title")) + "</h1>" + r.Component_info(&Options{
+		Props: map[string]interface{}{"height": interfaceAdd(lookInterface(this, "height"), 1), "logo": lookInterface(this, "logo"), "name": lookInterface(this, "title"), "slogan": lookInterface(this, "slogan")},
+		Style: map[string]string{"padding": "20px"},
+		Slot:  map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
+		P:     options,
+		Data:  this,
+	}) + "<div info> author: " + interfaceToStr(lookInterface(this, "info", "author"), true) + " " + interfaceToStr(lookInterface(this, "info", interfaceToStr(lookInterface(this, "slogan"))), true) + " " + interfaceToStr([]interface{}{lookInterface(this, "slogan")}, true) + "</div>" + r.Component_vOn(&Options{
 		Props: map[string]interface{}{"msg": "hello event"},
 		Slot:  map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string { return "" }},
 		P:     options,

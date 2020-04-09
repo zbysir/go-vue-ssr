@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/urfave/cli/v2"
 	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/signal"
 	"github.com/zbysir/go-vue-ssr/internal/version"
 	"github.com/zbysir/go-vue-ssr/pkg/vuessr"
 	"os"
@@ -29,6 +30,10 @@ func main() {
 			Name:  "pkg",
 			Usage: "pkg name",
 		},
+		&cli.BoolFlag{
+			Name:  "watch",
+			Usage: "watch file and rebuild",
+		},
 	}
 
 	c.Action = func(c *cli.Context) (err error) {
@@ -38,9 +43,21 @@ func main() {
 		}
 		to := c.String("to")
 		pkg := c.String("pkg")
-		err = vuessr.GenAllFile(src, to, pkg)
-		if err != nil {
-			return
+
+		if c.Bool("watch") {
+			ctx, cancel := signal.NewTermContext()
+			defer cancel()
+
+			err = vuessr.GenAllFileWithWatch(ctx, src, to, pkg)
+			if err != nil {
+				return
+			}
+		} else {
+			err = vuessr.GenAllFile(src, to, pkg)
+			if err != nil {
+				return
+			}
+			log.Infof("compile success")
 		}
 
 		return

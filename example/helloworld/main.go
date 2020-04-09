@@ -7,7 +7,7 @@ import (
 )
 
 // cd example/helloworld
-// exec `go-vue-ssr -src=./vue -to=./ -pkg=main` before run main
+// exec `go-vue-ssr -src=./vue -to=./ -pkg=main -watch` before run main
 func main() {
 	r := NewRender()
 	// 此指令获取渲染过程中所有v-on指令数据, 用来添加事件.
