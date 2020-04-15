@@ -63,6 +63,16 @@ func emptyFunc(args ...interface{}) interface{} {
 	return nil
 }
 
+// js中的作用域
+type Scope struct {
+	p      *Scope
+	values map[string]interface{}
+}
+
+func (s *Scope) ParentScope() *Scope {
+	return s.p
+}
+
 // 注册指令
 func (r *Render) Directive(name string, f DirectivesFunc) {
 	if r.directives == nil {
@@ -462,6 +472,20 @@ func lookInterface(data interface{}, keys ...string) (desc interface{}) {
 	m, ok := shouldLookInterface(data, keys...)
 	if !ok {
 		return nil
+	}
+
+	// 如果data实现了上层作用域接口, 则再向上寻找
+	for {
+		extend, ok := scope.(interface{ ParentScope() interface{} })
+		if !ok {
+			break
+		}
+		scope = extend.ParentScope()
+
+		m, ok := shouldLookInterface(scope, keys...)
+		if ok {
+			return m
+		}
 	}
 
 	return m
