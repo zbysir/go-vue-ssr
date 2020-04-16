@@ -109,7 +109,7 @@ func mapJsCodeToCode(m map[string]string) string {
 	props += "{"
 	for _, k := range getSortedKey(m) {
 		v := m[k]
-		valueCode, err := ast.Js2Go(v, DataKey)
+		valueCode, err := ast.Js2Go(v, ScopeKey)
 		if err != nil {
 			log.Panicf("%v, %s", err, v)
 		}
@@ -179,7 +179,7 @@ func (o *OptionsGen) ToGoCode() string {
 			valueCode := "nil"
 			if v.Value != "" {
 				var err error
-				valueCode, err = ast.Js2Go(v.Value, DataKey)
+				valueCode, err = ast.Js2Go(v.Value, ScopeKey)
 				if err != nil {
 					panic(err)
 				}
@@ -197,7 +197,7 @@ func (o *OptionsGen) ToGoCode() string {
 			// 方法:
 			funcName := v.Func
 			// 参数:
-			args, err := ast.Js2Go("["+v.Args+"]", DataKey)
+			args, err := ast.Js2Go("["+v.Args+"]", ScopeKey)
 			if err != nil {
 				panic(err)
 			}
@@ -209,8 +209,8 @@ func (o *OptionsGen) ToGoCode() string {
 		c += fmt.Sprintf("VonDirectives: %s,\n", on)
 	}
 
-	// data
-	c += fmt.Sprintf("Data: %s,\n", DataKey)
+	// Scope
+	c += fmt.Sprintf("Scope: %s,\n", ScopeKey)
 
 	c += "}"
 	return c
@@ -218,8 +218,8 @@ func (o *OptionsGen) ToGoCode() string {
 
 // 生成代码中的key
 const (
-	DataKey = "this" // 变量作用域的key, 相当于js的this.
-	SlotKey = "options.Slot"
+	ScopeKey = "scope" // 变量作用域的key, 模拟js作用域.
+	SlotKey  = "options.Slot"
 )
 
 // 组件渲染,
@@ -373,7 +373,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
-	condition, err := ast.Js2Go(e.Condition, DataKey)
+	condition, err := ast.Js2Go(e.Condition, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -392,7 +392,7 @@ if interfaceToBool(%s) {return %s`, condition, srcCode)
 		case "else":
 			code += fmt.Sprintf(`} else { return %s`, eleCode)
 		case "elseif":
-			condition, err := ast.Js2Go(v.Condition, DataKey)
+			condition, err := ast.Js2Go(v.Condition, ScopeKey)
 			if err != nil {
 				panic(err)
 			}
@@ -411,10 +411,10 @@ return ""
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
 		e.SlotName: fmt.Sprintf(`func(props map[string]interface{}) string{
-	%s := extendMap(%s, map[string]interface{}{"%s": props})
+	%s := extendScope(%s, map[string]interface{}{"%s": props})
 _ = %s
 return %s
-}`, DataKey, DataKey, e.PropsKey, DataKey, srcCode),
+}`, ScopeKey, ScopeKey, e.PropsKey, ScopeKey, srcCode),
 	}
 
 	// 插槽会将原来的子代码去掉, 并将代码放在namedSlot里.
@@ -426,7 +426,7 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	vfArray := e.ArrayKey
 	vfItem := e.ItemKey
 	vfIndex := e.IndexKey
-	vfArrayCode, err := ast.Js2Go(vfArray, DataKey)
+	vfArrayCode, err := ast.Js2Go(vfArray, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -436,8 +436,8 @@ func genVFor(e *VFor, srcCode string) (code string) {
   var b strings.Builder
 
   for index, item := range interface2Slice(%s) {
-    b.WriteString(func(xdata map[string]interface{}) string{
-        %s := extendMap(xdata, map[string]interface{}{
+    b.WriteString(func(xscope *Scope) string{
+        %s := extendScope(xscope, map[string]interface{}{
           "%s": index,
           "%s": item,
         })
@@ -446,11 +446,11 @@ func genVFor(e *VFor, srcCode string) (code string) {
     }(%s))
   }
 return b.String()
-}()`, vfArrayCode, DataKey, vfIndex, vfItem, srcCode, DataKey)
+}()`, vfArrayCode, ScopeKey, vfIndex, vfItem, srcCode, ScopeKey)
 }
 
 func genVHtml(value string) (code string) {
-	goCode, err := ast.Js2Go(value, DataKey)
+	goCode, err := ast.Js2Go(value, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -458,7 +458,7 @@ func genVHtml(value string) (code string) {
 }
 
 func genVText(value string) (code string) {
-	goCode, err := ast.Js2Go(value, DataKey)
+	goCode, err := ast.Js2Go(value, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -490,7 +490,7 @@ func injectVal(src string) (to string) {
 	src = reg.ReplaceAllStringFunc(src, func(s string) string {
 		key := s[2 : len(s)-2]
 
-		goCode, err := ast.Js2Go(key, DataKey)
+		goCode, err := ast.Js2Go(key, ScopeKey)
 		if err != nil {
 			panic(err)
 		}

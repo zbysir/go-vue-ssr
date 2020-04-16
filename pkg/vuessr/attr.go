@@ -12,7 +12,7 @@ func getPropsClass(props Props) string {
 		return "nil"
 	}
 
-	code, err := ast.Js2Go(item, DataKey)
+	code, err := ast.Js2Go(item, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -26,7 +26,7 @@ func getPropsStyle(props Props) string {
 		return "nil"
 	}
 
-	code, err := ast.Js2Go(item, DataKey)
+	code, err := ast.Js2Go(item, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +56,7 @@ func genAttrCode(e *VueElement) string {
 		classPropsCode := "nil"
 		if classProps != "" {
 			var err error
-			classPropsCode, err = ast.Js2Go(classProps, DataKey)
+			classPropsCode, err = ast.Js2Go(classProps, ScopeKey)
 			if err != nil {
 				panic(err)
 			}
@@ -76,7 +76,7 @@ func genAttrCode(e *VueElement) string {
 		stylePropsCode := "nil"
 		if styleProps != "" {
 			var err error
-			stylePropsCode, err = ast.Js2Go(styleProps, DataKey)
+			stylePropsCode, err = ast.Js2Go(styleProps, ScopeKey)
 			if err != nil {
 				panic(err)
 			}

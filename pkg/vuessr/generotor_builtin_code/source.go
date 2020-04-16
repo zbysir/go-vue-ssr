@@ -1,5 +1,3 @@
-//+build xxx
-
 // 此文件不参与编译, 只是作为文本用来生成builtin源码
 package main
 
@@ -15,9 +13,9 @@ import (
 )
 
 type Render struct {
-	// 模拟原型链, 每个组件中都可以直接读取到这个对象中的值. 如果和组件上层传递的props冲突, 则上层传递的props优先.
-	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
-	Prototype Prototype
+	// 全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
+	// 其中可以Set签名为function的方法, 供{{func(a)}}语法使用.
+	Global *Global
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
@@ -25,7 +23,16 @@ type Render struct {
 
 	VOnBinds []vOnBind
 	vOnDomId int
-	//ctx map[string]interface{} // 存储数据
+}
+
+func newRender() *Render {
+	return &Render{
+		Global:     &Global{NewScope()},
+		Components: nil,
+		directives: nil,
+		VOnBinds:   nil,
+		vOnDomId:   0,
+	}
 }
 
 type vOnBind struct {
@@ -35,14 +42,16 @@ type vOnBind struct {
 	Event       string
 }
 
-type Prototype map[string]interface{}
-
-func (p Prototype) Func(name string, f Function) {
-	p[name] = f
+type Global struct {
+	*Scope
 }
 
-func (p Prototype) Var(name string, v interface{}) {
-	p[name] = v
+func (p *Global) Func(name string, f Function) {
+	p.Scope.Set(name, f)
+}
+
+func (p *Global) Var(name string, v interface{}) {
+	p.Scope.Set(name, v)
 }
 
 // for {{func(a)}}
@@ -71,6 +80,56 @@ type Scope struct {
 
 func (s *Scope) ParentScope() *Scope {
 	return s.p
+}
+
+// 设置暂时只支持在当前作用域设置变量
+func (s *Scope) Set(k string, v interface{}) {
+	s.values[k] = v
+}
+
+// 查找作用域中的变量, 返回变量所在的map
+func (s *Scope) Find(k string) map[string]interface{} {
+	curr := s
+	for curr != nil {
+		if _, ok := curr.values[k]; ok {
+			return curr.values
+		}
+
+		curr = curr.p
+	}
+
+	return nil
+}
+
+func NewScope() *Scope {
+	return &Scope{
+		p:      nil,
+		values: map[string]interface{}{},
+	}
+}
+
+// 获取作用域中的变量
+// 会向上查找
+func (s *Scope) Get(k ...string) (v interface{}) {
+	var rootExist bool
+	var ok bool
+
+	curr := s
+	for curr != nil {
+		v, rootExist, ok = shouldLookInterface(curr.values, k...)
+		// 如果root存在, 则说明就应该读取当前作用域, 否则向上层作用域查找
+		if rootExist {
+			if !ok {
+				return nil
+			} else {
+				return
+			}
+		}
+
+		curr = curr.p
+	}
+
+	return
 }
 
 // 注册指令
@@ -189,7 +248,7 @@ type Options struct {
 	VonDirectives []vonDirective
 	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
 	// tips: 由于渲染顺序, 修改只会影响到子节点
-	Data map[string]interface{}
+	Scope *Scope
 }
 
 type directive struct {
@@ -469,30 +528,16 @@ func getClassFromProps(classProps interface{}) []string {
 }
 
 func lookInterface(data interface{}, keys ...string) (desc interface{}) {
-	m, ok := shouldLookInterface(data, keys...)
+	m, _, ok := shouldLookInterface(data, keys...)
 	if !ok {
 		return nil
-	}
-
-	// 如果data实现了上层作用域接口, 则再向上寻找
-	for {
-		extend, ok := scope.(interface{ ParentScope() interface{} })
-		if !ok {
-			break
-		}
-		scope = extend.ParentScope()
-
-		m, ok := shouldLookInterface(scope, keys...)
-		if ok {
-			return m
-		}
 	}
 
 	return m
 }
 
 func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
-	m, ok := shouldLookInterface(data, key)
+	m, _, ok := shouldLookInterface(data, key)
 	if !ok {
 		return nil
 	}
@@ -512,6 +557,13 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 		}
 	}
 	return desc
+}
+
+func extendScope(parent *Scope, data map[string]interface{}) *Scope {
+	return &Scope{
+		p:      parent,
+		values: data,
+	}
 }
 
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
@@ -660,9 +712,9 @@ func interface2Slice(s interface{}) (d []interface{}) {
 }
 
 // shouldLookInterface会返回interface(map[string]interface{})中指定的keys路径的值
-func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, exist bool) {
+func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, rootExist bool, exist bool) {
 	if len(keys) == 0 {
-		return data, true
+		return data, true, true
 	}
 
 	currKey := keys[0]
@@ -674,14 +726,16 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 		if !ok {
 			return
 		}
+		rootExist = true
+		desc, _, exist = shouldLookInterface(c, keys[1:]...)
+		return
 
-		return shouldLookInterface(c, keys[1:]...)
 	case []interface{}:
 		// 数组
 		switch currKey {
 		case "length":
 			// length
-			return len(data), true
+			return len(data), true, true
 		default:
 			// index
 			index, ok := strconv.ParseInt(currKey, 10, 64)
@@ -698,7 +752,7 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 		switch currKey {
 		case "length":
 			// length
-			return len(data), true
+			return len(data), true, true
 		default:
 		}
 	}

@@ -3,7 +3,7 @@
 package main
 
 func NewRender() *Render {
-	r := &Render{}
+	r := newRender()
 	r.Components = map[string]ComponentFunc{
 		"component": r.Component_component,
 		"info":      r.Component_info,

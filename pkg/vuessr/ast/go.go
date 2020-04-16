@@ -10,7 +10,7 @@ import (
 
 // 生成go代码
 // dataKey: 默认为options.data
-func Js2Go(code string, dataKey string) (goCode string, err error) {
+func Js2Go(code string, scopeKey string) (goCode string, err error) {
 	// 用括号包裹的原因是让"{x: 1}"这样的语法解析成对象, 而不是label
 	code = fmt.Sprintf("(%s)", code)
 
@@ -20,24 +20,24 @@ func Js2Go(code string, dataKey string) (goCode string, err error) {
 		return
 	}
 
-	goCode = genGoCodeByNode(p.Body[0], dataKey)
+	goCode = genGoCodeByNode(p.Body[0], scopeKey)
 	return
 }
 
-func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
+func genGoCodeByNode(node ast.Node, scopeKey string) (goCode string) {
 	switch t := node.(type) {
 
 	case *ast.ExpressionStatement:
-		return genGoCodeByNode(t.Expression, dataKey)
+		return genGoCodeByNode(t.Expression, scopeKey)
 	case *ast.Identifier:
-		return fmt.Sprintf(`lookInterface(%s, "%s")`, dataKey, t.Name)
+		return fmt.Sprintf(`%s.Get("%s")`, scopeKey, t.Name)
 	case *ast.DotExpression:
-		root, keys := lookExpress(t, dataKey)
-		return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
+		root, keys := lookExpress(t, scopeKey)
+		return fmt.Sprintf(`%s.Get(%s)`, root, strings.Join(keys, ", "))
 	case *ast.BracketExpression:
 		// a[b]
-		root, keys := lookExpress(t, dataKey)
-		return fmt.Sprintf(`lookInterface(%s, %s)`, root, strings.Join(keys, ", "))
+		root, keys := lookExpress(t, scopeKey)
+		return fmt.Sprintf(`%s.Get(%s)`, root, strings.Join(keys, ", "))
 	case *ast.StringLiteral:
 		return fmt.Sprintf(`"%s"`, t.Value)
 	case *ast.NumberLiteral:
@@ -46,14 +46,9 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 		return fmt.Sprintf("%v", t.Value)
 	case *ast.NullLiteral:
 		return fmt.Sprintf("%v", "nil")
-	//case ast.LogicalExpression:
-	//	left := genGoCodeByNode(t.Left, dataKey)
-	//	right := genGoCodeByNode(t.Right, dataKey)
-	//
-	//	return fmt.Sprintf(`interfaceToBool(%s) %s interfaceToBool(%s)`, left, t.Operator, right)
 	case *ast.BinaryExpression:
-		left := genGoCodeByNode(t.Left, dataKey)
-		right := genGoCodeByNode(t.Right, dataKey)
+		left := genGoCodeByNode(t.Left, scopeKey)
+		right := genGoCodeByNode(t.Right, scopeKey)
 		o := t.Operator
 		switch o {
 		case token.STRICT_EQUAL, token.EQUAL:
@@ -77,7 +72,7 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 		}
 
 	case *ast.UnaryExpression:
-		arg := genGoCodeByNode(t.Operand, dataKey)
+		arg := genGoCodeByNode(t.Operand, scopeKey)
 		switch t.Operator {
 		case token.NOT:
 			return fmt.Sprintf(`%sinterfaceToBool(%s)`, t.Operator, arg)
@@ -105,30 +100,30 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 				panic(fmt.Sprintf("bad Value kind of ObjectLiteral: %v", v.Kind))
 			}
 
-			valueCode := genGoCodeByNode(v.Value, dataKey)
+			valueCode := genGoCodeByNode(v.Value, scopeKey)
 			mapCode += fmt.Sprintf(`%s: %s,`, k, valueCode)
 		}
 		mapCode += "}"
 		return mapCode
 	case *ast.CallExpression:
-		funcName := genGoCodeByNode(t.Callee, dataKey)
+		funcName := genGoCodeByNode(t.Callee, scopeKey)
 
 		args := make([]string, len(t.ArgumentList))
 		for i, v := range t.ArgumentList {
-			args[i] = genGoCodeByNode(v, dataKey)
+			args[i] = genGoCodeByNode(v, scopeKey)
 		}
 		return fmt.Sprintf(`interfaceToFunc(%s)(%s)`, funcName, strings.Join(args, ","))
 	case *ast.ArrayLiteral:
 		args := make([]string, len(t.Value))
 		for i, v := range t.Value {
-			args[i] = genGoCodeByNode(v, dataKey)
+			args[i] = genGoCodeByNode(v, scopeKey)
 		}
 		return fmt.Sprintf(`[]interface{}{%s}`, strings.Join(args, ","))
 	case *ast.ConditionalExpression:
 		// 三元运算
-		consequent := genGoCodeByNode(t.Consequent, dataKey)
-		alternate := genGoCodeByNode(t.Alternate, dataKey)
-		test := genGoCodeByNode(t.Test, dataKey)
+		consequent := genGoCodeByNode(t.Consequent, scopeKey)
+		alternate := genGoCodeByNode(t.Alternate, scopeKey)
+		test := genGoCodeByNode(t.Test, scopeKey)
 
 		return fmt.Sprintf(`func() interface{} {if interfaceToBool(%s){return %s};return %s}()`, test, consequent, alternate)
 
@@ -144,22 +139,22 @@ func genGoCodeByNode(node ast.Node, dataKey string) (goCode string) {
 // 将a.b.c解析成 root 和keys
 // 如a.b.c, root: this, keys: [a ,b ,c]
 // 如"a".length, root: "a", keys: [length]
-func lookExpress(e ast.Expression, dataKey string) (root string, keys []string) {
+func lookExpress(e ast.Expression, scopeKey string) (root string, keys []string) {
 	switch r := e.(type) {
 	case *ast.DotExpression:
 		// a.b 中的b
 		currKey := fmt.Sprintf(`"%s"`, r.Identifier.Name)
-		root, keys = lookExpress(r.Left, dataKey)
+		root, keys = lookExpress(r.Left, scopeKey)
 		keys = append(keys, currKey)
 	case *ast.Identifier:
 		// a.b 中的a
 		// 使用dataKey读取变量
-		root = dataKey
+		root = scopeKey
 		keys = []string{fmt.Sprintf(`"%s"`, r.Name)}
 	case *ast.ObjectLiteral:
-		root = genGoCodeByNode(r, dataKey)
+		root = genGoCodeByNode(r, scopeKey)
 	case *ast.BinaryExpression:
-		root = genGoCodeByNode(r, dataKey)
+		root = genGoCodeByNode(r, scopeKey)
 	case *ast.BracketExpression:
 		var currKey string
 		switch m := r.Member.(type) {
@@ -171,10 +166,10 @@ func lookExpress(e ast.Expression, dataKey string) (root string, keys []string) 
 			// a[b]
 			// a[a+1]
 			// ... 各种表达式
-			currKey = fmt.Sprintf(`interfaceToStr(%s)`, genGoCodeByNode(r.Member, dataKey))
+			currKey = fmt.Sprintf(`interfaceToStr(%s)`, genGoCodeByNode(r.Member, scopeKey))
 		}
 
-		root, keys = lookExpress(r.Left, dataKey)
+		root, keys = lookExpress(r.Left, scopeKey)
 		keys = append(keys, currKey)
 	default:
 		panic(fmt.Sprintf("bad type for lookExpress: %T, %s", r, r))
