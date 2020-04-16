@@ -14,9 +14,9 @@ import (
 
 func TestHelloworld(t *testing.T) {
 	r := tplgo.NewRender()
-	r.Prototype = map[string]interface{}{"img": func(args ...interface{}) interface{} {
+	r.Global.Set("img", func(args ...interface{}) interface{} {
 		return fmt.Sprintf("%s?%d", args[0], 10000)
-	}}
+	})
 	str := r.Component_helloworld(&tplgo.Options{
 		Props: map[string]interface{}{
 			"name":        "bysir",
@@ -100,11 +100,9 @@ func TestVDirective(t *testing.T) {
 
 func TestAttr(t *testing.T) {
 	r := tplgo.NewRender()
-	r.Prototype = map[string]interface{}{
-		"img": func(args ...interface{}) interface{} {
-			return fmt.Sprintf("%s?100", args[0])
-		},
-	}
+	r.Global.Set("img", func(args ...interface{}) interface{} {
+		return fmt.Sprintf("%s?100", args[0])
+	})
 
 	html := r.Component_xattr(&tplgo.Options{
 		Props: map[string]interface{}{

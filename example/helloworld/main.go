@@ -12,7 +12,7 @@ func main() {
 	r := NewRender()
 	// 此指令获取渲染过程中所有v-on指令数据, 用来添加事件.
 	r.Directive("v-on-handler", func(b DirectivesBinding, options *Options) {
-		options.Slot = map[string]NamedSlotFunc{"default": func(props map[string]interface{}) string {
+		options.Slot = map[string]NamedSlotFunc{"default": func(options *Options) string {
 			bs, _ := json.Marshal(r.VOnBinds)
 			return fmt.Sprintf("var vOnBinds = %s;", bs)
 		}}

@@ -3,7 +3,7 @@
 package tplgo
 
 func NewRender() *Render {
-	r := &Render{}
+	r := newRender()
 	r.Components = map[string]ComponentFunc{
 		"bench":      r.Component_bench,
 		"class":      r.Component_class,
@@ -13,6 +13,7 @@ func NewRender() *Render {
 		"page":       r.Component_page,
 		"select":     r.Component_select,
 		"slot":       r.Component_slot,
+		"svg":        r.Component_svg,
 		"text":       r.Component_text,
 		"v-for":      r.Component_vFor,
 		"vFor":       r.Component_vFor,

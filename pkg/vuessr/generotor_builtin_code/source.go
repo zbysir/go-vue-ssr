@@ -172,17 +172,7 @@ func (r *Render) Component_component(options *Options) string {
 
 func (r *Render) Component_template(options *Options) string {
 	// exec directive
-	if len(options.Directives) != 0 {
-		for _, d := range options.Directives {
-			if f, ok := r.directives[d.Name]; ok {
-				f(DirectivesBinding{
-					Value: d.Value,
-					Arg:   d.Arg,
-					Name:  d.Name,
-				}, options)
-			}
-		}
-	}
+	options.Directives.Exec(r, options)
 
 	return options.Slot["default"](nil)
 }
@@ -240,15 +230,50 @@ type Options struct {
 	Class      []string                 // 本节点静态class
 	Style      map[string]string        // 本节点静态style
 	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
-	// 父级options
-	// - 在渲染插槽会用到. (根据name取到父级的slot)
-	// - 读取上层传递的PropsClass, 作用在root tag
+	// 有两种情况
+	// -  如果渲染的是元素（div等html元素），那么P是它所属的组件数据 ①
+	// -  如果渲染的是组件，那么P是它的父级组件数据 ②
+	// 在以下场景会用到 (后面的数字指的是属于上方的哪一种情况)
+	// - 渲染插槽. (根据name取到所属组件的slot) ①
+	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上. ①
+	// - Inject ①
+	// - Provide ①/②
 	P             *Options
-	Directives    directives // 指令值
+	Directives    directives // 多个指令
 	VonDirectives []vonDirective
 	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
 	// tips: 由于渲染顺序, 修改只会影响到子节点
-	Scope *Scope
+	Scope   *Scope
+	Provide map[string]interface{}
+}
+
+func (o *Options) SetProvide(d map[string]interface{}) {
+	if o.Provide == nil {
+		o.Provide = d
+	} else {
+		o.Provide = map[string]interface{}{}
+		for k, v := range d {
+			o.Provide[k] = v
+		}
+	}
+	return
+}
+
+// GetProvide会循环向上层查找Provide
+func (o *Options) GetProvide(k string) (v interface{}) {
+	// 向上查找
+	curr := o
+	for curr != nil {
+		if curr.Provide != nil {
+			if v, ok := curr.Provide[k]; ok {
+				return v
+			}
+		}
+
+		curr = curr.P
+	}
+
+	return nil
 }
 
 type directive struct {
@@ -305,7 +330,7 @@ type ComponentFunc func(options *Options) string
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(props map[string]interface{}) string
+type NamedSlotFunc func(slotProps map[string]interface{}) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
