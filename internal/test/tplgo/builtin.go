@@ -2,6 +2,7 @@
 
 package tplgo
 
+
 import (
 	"encoding/json"
 	"fmt"
@@ -12,9 +13,9 @@ import (
 )
 
 type Render struct {
-	// 模拟原型链, 每个组件中都可以直接读取到这个对象中的值. 如果和组件上层传递的props冲突, 则上层传递的props优先.
-	// 其中可以写签名为function的方法, 可以供{{func(a)}}语法使用.
-	Prototype Prototype
+	// 全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
+	// 其中可以Set签名为function的方法, 供{{func(a)}}语法使用.
+	Global *Global
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
@@ -22,7 +23,16 @@ type Render struct {
 
 	VOnBinds []vOnBind
 	vOnDomId int
-	//ctx map[string]interface{} // 存储数据
+}
+
+func newRender() *Render {
+	return &Render{
+		Global:     &Global{NewScope()},
+		Components: nil,
+		directives: nil,
+		VOnBinds:   nil,
+		vOnDomId:   0,
+	}
 }
 
 type vOnBind struct {
@@ -32,14 +42,16 @@ type vOnBind struct {
 	Event       string
 }
 
-type Prototype map[string]interface{}
-
-func (p Prototype) Func(name string, f Function) {
-	p[name] = f
+type Global struct {
+	*Scope
 }
 
-func (p Prototype) Var(name string, v interface{}) {
-	p[name] = v
+func (p *Global) Func(name string, f Function) {
+	p.Scope.Set(name, f)
+}
+
+func (p *Global) Var(name string, v interface{}) {
+	p.Scope.Set(name, v)
 }
 
 // for {{func(a)}}
@@ -58,6 +70,66 @@ func emptyFunc(args ...interface{}) interface{} {
 		return args[0]
 	}
 	return nil
+}
+
+// js中的作用域
+type Scope struct {
+	p      *Scope
+	values map[string]interface{}
+}
+
+func (s *Scope) ParentScope() *Scope {
+	return s.p
+}
+
+// 设置暂时只支持在当前作用域设置变量
+func (s *Scope) Set(k string, v interface{}) {
+	s.values[k] = v
+}
+
+// 查找作用域中的变量, 返回变量所在的map
+func (s *Scope) Find(k string) map[string]interface{} {
+	curr := s
+	for curr != nil {
+		if _, ok := curr.values[k]; ok {
+			return curr.values
+		}
+
+		curr = curr.p
+	}
+
+	return nil
+}
+
+func NewScope() *Scope {
+	return &Scope{
+		p:      nil,
+		values: map[string]interface{}{},
+	}
+}
+
+// 获取作用域中的变量
+// 会向上查找
+func (s *Scope) Get(k ...string) (v interface{}) {
+	var rootExist bool
+	var ok bool
+
+	curr := s
+	for curr != nil {
+		v, rootExist, ok = shouldLookInterface(curr.values, k...)
+		// 如果root存在, 则说明就应该读取当前作用域, 否则向上层作用域查找
+		if rootExist {
+			if !ok {
+				return nil
+			} else {
+				return
+			}
+		}
+
+		curr = curr.p
+	}
+
+	return
 }
 
 // 注册指令
@@ -100,17 +172,7 @@ func (r *Render) Component_component(options *Options) string {
 
 func (r *Render) Component_template(options *Options) string {
 	// exec directive
-	if len(options.Directives) != 0 {
-		for _, d := range options.Directives {
-			if f, ok := r.directives[d.Name]; ok {
-				f(DirectivesBinding{
-					Value: d.Value,
-					Arg:   d.Arg,
-					Name:  d.Name,
-				}, options)
-			}
-		}
-	}
+	options.Directives.Exec(r, options)
 
 	return options.Slot["default"](nil)
 }
@@ -119,20 +181,10 @@ func (r *Render) Component_template(options *Options) string {
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) Tag(tagName string, isRoot bool, options *Options) string {
-	// todo 现没有考虑作用在自定义组件上的指令
+func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 	// exec directive
-	if len(options.Directives) != 0 {
-		for _, d := range options.Directives {
-			if f, ok := r.directives[d.Name]; ok {
-				f(DirectivesBinding{
-					Value: d.Value,
-					Arg:   d.Arg,
-					Name:  d.Name,
-				}, options)
-			}
-		}
-	}
+	options.Directives.Exec(r, options)
+
 	// exec von
 	// 生成唯一id 并存放在dom上
 	// 存储数据
@@ -180,13 +232,44 @@ type Options struct {
 	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
-	// - 读取上层传递的PropsClass, 作用在root tag
+	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上.
+	// - 循环向上查找Provide
 	P             *Options
-	Directives    []directive // 指令值
+	Directives    directives // 多个指令
 	VonDirectives []vonDirective
 	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
 	// tips: 由于渲染顺序, 修改只会影响到子节点
-	Data map[string]interface{}
+	Scope   *Scope
+	Provide map[string]interface{}
+}
+
+func (o *Options) SetProvide(d map[string]interface{}) {
+	if o.Provide == nil {
+		o.Provide = d
+	} else {
+		o.Provide = map[string]interface{}{}
+		for k, v := range d {
+			o.Provide[k] = v
+		}
+	}
+	return
+}
+
+// GetProvide会循环向上层查找Provide
+func (o *Options) GetProvide(k string) (v interface{}) {
+	// 向上查找
+	curr := o
+	for curr != nil {
+		if curr.Provide != nil {
+			if v, ok := curr.Provide[k]; ok {
+				return v
+			}
+		}
+
+		curr = curr.P
+	}
+
+	return nil
 }
 
 type directive struct {
@@ -201,17 +284,31 @@ type vonDirective struct {
 	Args  []interface{}
 }
 
+type directives []directive
+
+func (ds directives) Exec(r *Render, options *Options) {
+	for _, d := range ds {
+		if f, ok := r.directives[d.Name]; ok {
+			f(DirectivesBinding{
+				Value: d.Value,
+				Arg:   d.Arg,
+				Name:  d.Name,
+			}, options)
+		}
+	}
+}
+
 type Props map[string]interface{}
 
 func (p Props) CanBeAttr() Props {
-	html := map[string]struct{}{
+	htmlAttr := map[string]struct{}{
 		"id":  {},
 		"src": {},
 	}
 
 	a := Props{}
 	for k, v := range p {
-		if _, ok := html[k]; ok {
+		if _, ok := htmlAttr[k]; ok {
 			a[k] = v
 			continue
 		}
@@ -229,7 +326,7 @@ type ComponentFunc func(options *Options) string
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(props map[string]interface{}) string
+type NamedSlotFunc func(slotProps map[string]interface{}) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
@@ -432,6 +529,7 @@ func getClassFromProps(classProps interface{}) []string {
 				c = append(c, k)
 			}
 		}
+		sort.Strings(c)
 		cs = c
 	case []interface{}:
 		var c []string
@@ -451,7 +549,7 @@ func getClassFromProps(classProps interface{}) []string {
 }
 
 func lookInterface(data interface{}, keys ...string) (desc interface{}) {
-	m, ok := shouldLookInterface(data, keys...)
+	m, _, ok := shouldLookInterface(data, keys...)
 	if !ok {
 		return nil
 	}
@@ -460,7 +558,7 @@ func lookInterface(data interface{}, keys ...string) (desc interface{}) {
 }
 
 func lookInterfaceToSlice(data interface{}, key string) (desc []interface{}) {
-	m, ok := shouldLookInterface(data, key)
+	m, _, ok := shouldLookInterface(data, key)
 	if !ok {
 		return nil
 	}
@@ -480,6 +578,13 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 		}
 	}
 	return desc
+}
+
+func extendScope(parent *Scope, data map[string]interface{}) *Scope {
+	return &Scope{
+		p:      parent,
+		values: data,
+	}
 }
 
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
@@ -628,33 +733,38 @@ func interface2Slice(s interface{}) (d []interface{}) {
 }
 
 // shouldLookInterface会返回interface(map[string]interface{})中指定的keys路径的值
-func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, exist bool) {
+func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, rootExist bool, exist bool) {
 	if len(keys) == 0 {
-		return data, true
+		return data, true, true
 	}
 
 	currKey := keys[0]
 
 	switch data := data.(type) {
 	case map[string]interface{}:
+		// 对象
 		c, ok := data[currKey]
 		if !ok {
 			return
 		}
+		rootExist = true
+		desc, _, exist = shouldLookInterface(c, keys[1:]...)
+		return
 
-		return shouldLookInterface(c, keys[1:]...)
 	case []interface{}:
+		// 数组
 		switch currKey {
 		case "length":
 			// length
-			return len(data), true
+			return len(data), true, true
 		default:
 			// index
 			index, ok := strconv.ParseInt(currKey, 10, 64)
 			if ok != nil {
 				return
 			}
-			if int(index) >= len(data) {
+
+			if int(index) >= len(data) || index < 0 {
 				return
 			}
 			return shouldLookInterface(data[index], keys[1:]...)
@@ -663,7 +773,7 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ex
 		switch currKey {
 		case "length":
 			// length
-			return len(data), true
+			return len(data), true, true
 		default:
 		}
 	}

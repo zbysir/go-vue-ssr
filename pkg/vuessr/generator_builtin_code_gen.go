@@ -230,10 +230,14 @@ type Options struct {
 	Class      []string                 // 本节点静态class
 	Style      map[string]string        // 本节点静态style
 	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
-	// 父级options
-	// - 在渲染插槽会用到. (根据name取到父级的slot)
-	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上.
-	// - 循环向上查找Provide
+	// 有两种情况
+	// -  如果渲染的是元素（div等html元素），那么P是它所属的组件数据 ①
+	// -  如果渲染的是组件，那么P是它的父级组件数据 ②
+	// 在以下场景会用到 (后面的数字指的是属于上方的哪一种情况)
+	// - 渲染插槽. (根据name取到所属组件的slot) ①
+	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上. ①
+	// - Inject ①
+	// - Provide ①/②
 	P             *Options
 	Directives    directives // 多个指令
 	VonDirectives []vonDirective

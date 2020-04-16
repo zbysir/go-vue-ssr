@@ -15,7 +15,7 @@ import (
 type Render struct {
 	// 全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
 	// 其中可以Set签名为function的方法, 供{{func(a)}}语法使用.
-	Global Global
+	Global *Global
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
@@ -27,7 +27,7 @@ type Render struct {
 
 func newRender() *Render {
 	return &Render{
-		Global:     Global{NewScope()},
+		Global:     &Global{NewScope()},
 		Components: nil,
 		directives: nil,
 		VOnBinds:   nil,
@@ -47,11 +47,11 @@ type Global struct {
 }
 
 func (p *Global) Func(name string, f Function) {
-	p.Set(name, f)
+	p.Scope.Set(name, f)
 }
 
 func (p *Global) Var(name string, v interface{}) {
-	p.Set(name, v)
+	p.Scope.Set(name, v)
 }
 
 // for {{func(a)}}
@@ -121,6 +121,8 @@ func (s *Scope) Get(k ...string) (v interface{}) {
 		if rootExist {
 			if !ok {
 				return nil
+			} else {
+				return
 			}
 		}
 
@@ -145,7 +147,7 @@ func (r *Render) Component_slot(options *Options) string {
 	if name == "" {
 		name = "default"
 	}
-	props := options.Props
+
 	injectSlotFunc := options.P.Slot[name]
 
 	// 如果没有传递slot 则使用默认的code
@@ -153,7 +155,7 @@ func (r *Render) Component_slot(options *Options) string {
 		return options.Slot["default"](nil)
 	}
 
-	return injectSlotFunc(props)
+	return injectSlotFunc(options)
 }
 
 func (r *Render) Component_component(options *Options) string {
@@ -170,17 +172,7 @@ func (r *Render) Component_component(options *Options) string {
 
 func (r *Render) Component_template(options *Options) string {
 	// exec directive
-	if len(options.Directives) != 0 {
-		for _, d := range options.Directives {
-			if f, ok := r.directives[d.Name]; ok {
-				f(DirectivesBinding{
-					Value: d.Value,
-					Arg:   d.Arg,
-					Name:  d.Name,
-				}, options)
-			}
-		}
-	}
+	options.Directives.Exec(r, options)
 
 	return options.Slot["default"](nil)
 }
@@ -240,13 +232,44 @@ type Options struct {
 	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 父级options
 	// - 在渲染插槽会用到. (根据name取到父级的slot)
-	// - 读取上层传递的PropsClass, 作用在root tag
+	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上.
+	// - 循环向上查找Provide
 	P             *Options
-	Directives    directives // 指令值
+	Directives    directives // 多个指令
 	VonDirectives []vonDirective
 	// 组件模板中能够访问的所有值, 由Prototype+Props组成, 在指令中可以修改这个值达到声明变量的目的
 	// tips: 由于渲染顺序, 修改只会影响到子节点
-	Scope *Scope
+	Scope   *Scope
+	Provide map[string]interface{}
+}
+
+func (o *Options) SetProvide(d map[string]interface{}) {
+	if o.Provide == nil {
+		o.Provide = d
+	} else {
+		o.Provide = map[string]interface{}{}
+		for k, v := range d {
+			o.Provide[k] = v
+		}
+	}
+	return
+}
+
+// GetProvide会循环向上层查找Provide
+func (o *Options) GetProvide(k string) (v interface{}) {
+	// 向上查找
+	curr := o
+	for curr != nil {
+		if curr.Provide != nil {
+			if v, ok := curr.Provide[k]; ok {
+				return v
+			}
+		}
+
+		curr = curr.P
+	}
+
+	return nil
 }
 
 type directive struct {
@@ -301,9 +324,10 @@ func (p Props) CanBeAttr() Props {
 // 组件的render函数
 type ComponentFunc func(options *Options) string
 
-// 用来生成slot的方法
-// 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(props map[string]interface{}) string
+// 渲染slot的方法
+// slotProp是插槽prop
+// 传递的Options是上层options, 可以拿到slotProps
+type NamedSlotFunc func(options *Options) string
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
