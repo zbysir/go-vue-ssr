@@ -661,6 +661,32 @@ func interfaceAdd(a, b interface{}) interface{} {
 	return an + bn
 }
 
+func interfaceLess(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) < interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) < interfaceToStr(b)
+	}
+
+	return an < bn
+}
+
+func interfaceGreater(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) > interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) > interfaceToStr(b)
+	}
+
+	return an > bn
+}
+
 func isNumber(s interface{}) (d float64, is bool) {
 	if s == nil {
 		return 0, false

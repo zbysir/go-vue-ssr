@@ -65,8 +65,11 @@ func genGoCodeByNode(node ast.Node, scopeKey string) (goCode string) {
 			return fmt.Sprintf(`interfaceToFloat(%s) / interfaceToFloat(%s)`, left, right)
 		case token.LOGICAL_AND, token.LOGICAL_OR:
 			return fmt.Sprintf(`interfaceToBool(%s) %s interfaceToBool(%s)`, left, t.Operator, right)
-		case token.LESS, token.GREATER:
-			return fmt.Sprintf(`interfaceToStr(%s) %s interfaceToStr(%s)`, left, t.Operator, right)
+		case token.LESS:
+			return fmt.Sprintf(`interfaceLess(%s, %s)`, left, right)
+		case token.GREATER:
+			return fmt.Sprintf(`interfaceGreater(%s, %s)`, left, right)
+
 		default:
 			panic(fmt.Sprintf("bad Operator for BinaryExpression: %s", o))
 		}
