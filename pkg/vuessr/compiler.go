@@ -158,10 +158,9 @@ func (o *OptionsGen) ToGoCode() string {
 	slot := map[string]string{}
 
 	children := o.DefaultSlotCode
-	if children == "" {
-		children = `""`
+	if children != `""` {
+		slot["default"] = fmt.Sprintf(`func (props map[string]interface{})string{return %s}`, children)
 	}
-	slot["default"] = fmt.Sprintf(`func (props map[string]interface{})string{return %s}`, children)
 
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v

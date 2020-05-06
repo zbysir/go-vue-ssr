@@ -150,9 +150,13 @@ func (r *Render) Component_slot(options *Options) string {
 	props := options.Props
 	injectSlotFunc := options.P.Slot[name]
 
-	// 如果没有传递slot 则使用默认的code
+	// 如果没有传递slot 则使用默认的slot
 	if injectSlotFunc == nil {
-		return options.Slot["default"](nil)
+		injectSlotFunc = options.Slot["default"]
+	}
+
+	if injectSlotFunc == nil {
+		return ""
 	}
 
 	return injectSlotFunc(props)
@@ -546,7 +550,7 @@ func getClassFromProps(classProps interface{}) []string {
 	}
 
 	for i := range cs {
-		cs [i] = escape(cs[i])
+		cs[i] = escape(cs[i])
 	}
 
 	return cs
