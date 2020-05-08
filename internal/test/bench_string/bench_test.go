@@ -15,14 +15,14 @@ type data struct {
 	Msg string  `json:"msg"`
 }
 
-// 10000 111000400 ns/op
-// 1000 9,766,647 ns/op
+// 10000	50,954,582 ns/op
+// 1000		4,584,631 ns/op
 func BenchmarkString(b *testing.B) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
 	var ds []*data
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10000; i++ {
 		ds = append(ds, &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
@@ -79,7 +79,8 @@ func TestString(b *testing.T) {
 	})
 }
 
-// 7946 ns/op
+// 1000		64,660,367 ns/op
+// 100	947,680 ns/op
 func BenchmarkString2(b *testing.B) {
 	var ii interface{}
 	// 生成10000个嵌套数据
@@ -90,7 +91,7 @@ func BenchmarkString2(b *testing.B) {
 	}
 
 	head := d
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 100; i++ {
 		n := &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
