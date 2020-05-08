@@ -141,25 +141,21 @@ func (r *Render) Directive(name string, f DirectivesFunc) {
 	r.directives[name] = f
 }
 
-// 内置组件
+// 内置组件Slot, 将渲染父级传递的slot.
 func (r *Render) Component_slot(options *Options) string {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
 	}
 	props := options.Props
-	injectSlotFunc := options.P.Slot[name]
+	injectSlotFunc,ok := options.P.Slots[name]
 
-	// 如果没有传递slot 则使用默认的slot
-	if injectSlotFunc == nil {
-		injectSlotFunc = options.Slot["default"]
+	// 如果没有传递slot 则使用自身默认的slot
+	if !ok {
+		injectSlotFunc = options.Slots["default"]
 	}
 
-	if injectSlotFunc == nil {
-		return ""
-	}
-
-	return injectSlotFunc(props)
+	return injectSlotFunc.Exec(props)
 }
 
 func (r *Render) Component_component(options *Options) string {
@@ -178,7 +174,7 @@ func (r *Render) Component_template(options *Options) string {
 	// exec directive
 	options.Directives.Exec(r, options)
 
-	return options.Slot["default"](nil)
+	return options.Slots.Exec("default",nil)
 }
 
 // 动态tag
@@ -220,20 +216,20 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slot["default"](nil), tagName)
+	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slots.Exec("default",nil), tagName)
 	return eleCode
 }
 
 // 渲染组件需要的结构
 // tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
-	Props      Props                    // 本节点的数据(不包含class和style)
-	PropsClass interface{}              // :class
-	PropsStyle map[string]interface{}   // :style
-	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
-	Class      []string                 // 本节点静态class
-	Style      map[string]string        // 本节点静态style
-	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	Props      Props                  // 本节点的数据(不包含class和style)
+	PropsClass interface{}            // :class
+	PropsStyle map[string]interface{} // :style
+	Attrs      map[string]string      // 本节点静态的attrs (除去class和style)
+	Class      []string               // 本节点静态class
+	Style      map[string]string      // 本节点静态style
+	Slots      Slots                  // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
 	// 有两种情况
 	// -  如果渲染的是元素（div等html元素），那么P是它所属的组件数据 ①
 	// -  如果渲染的是组件，那么P是它的父级组件数据 ②
@@ -329,12 +325,33 @@ func (p Props) CanBeAttr() Props {
 	return a
 }
 
+type Slots map[string]NamedSlotFunc
+
+func (s Slots) Exec(name string, slotProps Props) string {
+	if s == nil {
+		return ""
+	}
+	if f, ok := s[name]; ok {
+		return f(slotProps)
+	}
+
+	return ""
+}
+
 // 组件的render函数
 type ComponentFunc func(options *Options) string
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(slotProps map[string]interface{}) string
+type NamedSlotFunc func(slotProps Props) string
+
+func (f NamedSlotFunc) Exec(slotProps Props) string {
+	if f == nil {
+		return ""
+	}
+
+	return f(slotProps)
+}
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化

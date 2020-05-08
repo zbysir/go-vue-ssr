@@ -159,13 +159,13 @@ func (o *OptionsGen) ToGoCode() string {
 
 	children := o.DefaultSlotCode
 	if children != `""` {
-		slot["default"] = fmt.Sprintf(`func (props map[string]interface{})string{return %s}`, children)
+		slot["default"] = fmt.Sprintf(`func(props Props) string{return %s}`, children)
 	}
 
 	for k, v := range o.NamedSlotCode {
 		slot[k] = v
 	}
-	c += fmt.Sprintf("Slot: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc", false))
+	c += fmt.Sprintf("Slots: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc", false))
 
 	// p
 	c += fmt.Sprintf("P: options,\n")
@@ -218,7 +218,6 @@ func (o *OptionsGen) ToGoCode() string {
 // 生成代码中的key
 const (
 	ScopeKey = "scope" // 变量作用域的key, 模拟js作用域.
-	SlotKey  = "options.Slot"
 )
 
 // 组件渲染,
@@ -409,7 +408,7 @@ return ""
 
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
-		e.SlotName: fmt.Sprintf(`func(props map[string]interface{}) string{
+		e.SlotName: fmt.Sprintf(`func(props Props) string{
 	%s := extendScope(%s, map[string]interface{}{"%s": props})
 _ = %s
 return %s
