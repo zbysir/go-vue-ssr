@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.16"
+const Version = "0.0.17"
 
 // 0.0.9
 // fix <!doctype html>

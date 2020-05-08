@@ -320,12 +320,10 @@ func ParseVue(filename string) (v *VueElement, err error) {
 
 	p := VueElementParser{}
 	if len(es) == 1 {
-		// 按照vue组件写法才会有root节点
+		// 和vue不同的是, 在根template下的所有子节点都是root节点
 		if es[0].TagName == "template" {
-			if es[0].hasOnlyOneChildren() {
-				for _, v := range es[0].Children {
-					v.Root = true
-				}
+			for _, v := range es[0].Children {
+				v.Root = true
 			}
 		}
 		v = p.Parse(es[0])
