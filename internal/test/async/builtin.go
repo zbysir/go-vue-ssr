@@ -25,7 +25,7 @@ type Render struct {
 	vOnDomId int
 
 	Worker chan struct{}
-	Wg sync.WaitGroup
+	Wg     sync.WaitGroup
 }
 
 func newRender() *Render {
@@ -135,6 +135,125 @@ func (s *Scope) Get(k ...string) (v interface{}) {
 	return
 }
 
+type Promise interface {
+	Result() string
+}
+
+type PromiseString string
+
+func (p PromiseString) Result() string {
+	return string(p)
+}
+
+type PromiseFunc func() string
+
+func (p PromiseFunc) Result() string {
+	return p()
+}
+
+// 链表, 提升性能
+type PromiseGroup struct {
+	Cur  Promise
+	Next *PromiseGroup
+	Last *PromiseGroup // 用于在append时提升速度
+	Note string
+}
+
+func (p *PromiseGroup) AppendGroup(s *PromiseGroup) {
+	if s == nil || s.Cur == nil {
+		return
+	}
+	if p.Cur == nil {
+		p.Cur = s.Cur
+		p.Next = s.Next
+		p.Last = s.Last
+		//*p = *s
+		return
+	}
+	if p.Last == nil || s.Last == nil {
+		panic("last不能为空")
+	}
+	p.Last.Next = s
+	p.Last = s.Last
+}
+
+// 支持Promise/string/PromiseGroup
+func (p *PromiseGroup) Append(i interface{}) {
+	switch t := i.(type) {
+	case *PromiseGroup:
+		p.AppendGroup(t)
+	case Promise:
+		p.AppendPromise(t)
+	case string:
+		p.AppendString(t)
+	default:
+		panic(t)
+	}
+}
+
+func (p *PromiseGroup) AppendPromise(s Promise) {
+	if s == nil {
+		return
+	}
+
+	if p.Cur == nil {
+		p.Cur = s
+		p.Last = p
+		return
+	}
+
+	if p.Last == nil {
+		panic("last不能为空")
+	}
+	last := &PromiseGroup{
+		Cur: s,
+	}
+	last.Last = last
+
+	p.Last.Next = last
+	p.Last = last
+}
+
+func (p *PromiseGroup) AppendString(s string) {
+	if s == "" {
+		return
+	}
+
+	p.AppendPromise(PromiseString(s))
+}
+
+func (p *PromiseGroup) Join() string {
+	if p == nil || p.Cur == nil {
+		return ""
+	}
+
+	b := strings.Builder{}
+
+	for cur := p; cur != nil; cur = cur.Next {
+		if cur.Next == nil {
+			//log.Infof("xx %+v", cur.Cur)
+		}
+
+		b.WriteString(cur.Cur.Result())
+	}
+
+	return b.String()
+}
+
+func (p *PromiseGroup) Len() int {
+	if p == nil || p.Cur == nil {
+		return 0
+	}
+
+	var i int
+
+	for cur := p; cur != nil; cur = cur.Next {
+		i++
+	}
+
+	return i
+}
+
 // 注册指令
 func (r *Render) Directive(name string, f DirectivesFunc) {
 	if r.directives == nil {
@@ -145,7 +264,7 @@ func (r *Render) Directive(name string, f DirectivesFunc) {
 }
 
 // 内置组件Slot, 将渲染父级传递的slot.
-func (r *Render) Component_slot(options *Options) PromiseGroup {
+func (r *Render) Component_slot(options *Options) *PromiseGroup {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
@@ -158,10 +277,50 @@ func (r *Render) Component_slot(options *Options) PromiseGroup {
 		injectSlotFunc = options.Slots["default"]
 	}
 
-	return injectSlotFunc.Exec(props)
+	p := injectSlotFunc.Exec(props)
+	return p
 }
 
-func (r *Render) Component_component(options *Options) PromiseGroup {
+type PromiseChan chan string
+
+func (p PromiseChan) Result() string {
+	return <-p
+}
+
+func (r *Render) Component_async(options *Options) *PromiseGroup {
+	scope := extendScope(r.Global.Scope, options.Props)
+	options.Directives.Exec(r, options)
+	_ = scope
+
+	//s := make(PromiseChan, 1)
+	// 异步子节点计算
+	//go func() {
+	//ps := options.Slots.Exec("default", nil)
+	//ps.Append("xxxxxxxx")
+	//ps.Last = ps
+	//s := ps.Join()
+	//_ = s
+	//s := ps.Join()
+
+	//log.Infof("%+v", s)
+	//}()
+
+	p := &PromiseGroup{Note: "sync"}
+	p.Append("xxxx")
+
+	//p.Append("1")
+	//p.Cur = PromiseString(ps.Join())
+	//p.Last = p
+	//p.Append(ps.Join())
+	//log.Infof("1 %+v %+v %p", p.Next, p.Last, p)
+
+	//p.Append(ps.Join())
+	//log.Infof("2 %+v %+v %p", p.Next, p.Last, p)
+
+	return p
+}
+
+func (r *Render) Component_component(options *Options) *PromiseGroup {
 	is, ok := options.Props["is"].(string)
 	if !ok {
 		return nil
@@ -169,11 +328,13 @@ func (r *Render) Component_component(options *Options) PromiseGroup {
 	if c, ok := r.Components[is]; ok {
 		return c(options)
 	}
-
-	return PromiseGroup{PromiseString(fmt.Sprintf("<p>not register com: %s</p>", is))}
+	p := &PromiseGroup{
+	}
+	p.Append(fmt.Sprintf("<p>not register com: %s</p>", is))
+	return p
 }
 
-func (r *Render) Component_template(options *Options) PromiseGroup {
+func (r *Render) Component_template(options *Options) *PromiseGroup {
 	// exec directive
 	options.Directives.Exec(r, options)
 
@@ -184,7 +345,7 @@ func (r *Render) Component_template(options *Options) PromiseGroup {
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) tag(tagName string, isRoot bool, options *Options) PromiseGroup {
+func (r *Render) tag(tagName string, isRoot bool, options *Options) *PromiseGroup {
 	// exec directive
 	options.Directives.Exec(r, options)
 
@@ -220,10 +381,12 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) PromiseGroup
 		mixinAttr(p, options.Attrs, options.Props)
 
 	slotG := options.Slots.Exec("default", nil)
-	var g PromiseGroup
-	g = append(g, PromiseString(fmt.Sprintf("<%s%s>", tagName, attr)))
-	g = append(g, slotG...)
-	g = append(g, PromiseString(fmt.Sprintf("</%s>", tagName)))
+	var g = &PromiseGroup{}
+	g.Append(PromiseString(fmt.Sprintf("<%s%s>", tagName, attr)))
+	g.AppendGroup(slotG)
+
+	g.Append(PromiseString(fmt.Sprintf("</%s>", tagName)))
+
 	return g
 }
 
@@ -334,7 +497,7 @@ func (p Props) CanBeAttr() Props {
 
 type Slots map[string]NamedSlotFunc
 
-func (s Slots) Exec(name string, slotProps Props) PromiseGroup {
+func (s Slots) Exec(name string, slotProps Props) *PromiseGroup {
 	if s == nil {
 		return nil
 	}
@@ -346,13 +509,13 @@ func (s Slots) Exec(name string, slotProps Props) PromiseGroup {
 }
 
 // 组件的render函数
-type ComponentFunc func(options *Options) PromiseGroup
+type ComponentFunc func(options *Options) *PromiseGroup
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(slotProps Props) PromiseGroup
+type NamedSlotFunc func(slotProps Props) *PromiseGroup
 
-func (f NamedSlotFunc) Exec(slotProps Props) PromiseGroup {
+func (f NamedSlotFunc) Exec(slotProps Props) *PromiseGroup {
 	if f == nil {
 		return nil
 	}

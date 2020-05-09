@@ -159,7 +159,7 @@ func (o *OptionsGen) ToGoCode() string {
 
 	children := o.DefaultSlotCode
 	if children != `""` {
-		slot["default"] = fmt.Sprintf(`func(props Props) string{return %s}`, children)
+		slot["default"] = fmt.Sprintf(`func(props Props) *PromiseGroup{g:=&PromiseGroup{} ;%s;return g}`, children)
 	}
 
 	for k, v := range o.NamedSlotCode {
@@ -215,6 +215,11 @@ func (o *OptionsGen) ToGoCode() string {
 	return c
 }
 
+type Code struct {
+	Src  string
+	Type string // string 纯字符串 / async 异步(PromiseGroup)
+}
+
 // 生成代码中的key
 const (
 	ScopeKey = "scope" // 变量作用域的key, 模拟js作用域.
@@ -230,6 +235,7 @@ const (
 
 // 每个组件都是一个func或者是一个字符串
 // slot: 子级代码
+// 返回的code 是一行代码,
 func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[string]string) {
 	var eleCode = ""
 
@@ -237,27 +243,54 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 	namedSlotCode = map[string]string{}
 	if len(e.Children) != 0 {
+		str := false
+		strCode := ""
+
 		for _, v := range e.Children {
 			// 跳过生成else节点的代码, 真正生成else节点的代码在if节点中
 			if v.VElse || v.VElseIf {
 				continue
 			}
 			childCode, childNamedSlotCode := c.GenEleCode(v)
-			if defaultSlotCode != "" {
-				defaultSlotCode += "+" + childCode
-			} else {
-				defaultSlotCode = childCode
-			}
-
 			for k, v := range childNamedSlotCode {
 				namedSlotCode[k] = v
 			}
+
+			var xx = ""
+			if strings.HasPrefix(childCode, "\"") {
+				if !str {
+					// 开始
+					strCode = childCode
+				} else {
+					if strCode == "" {
+						strCode += childCode
+					} else {
+						strCode += "+" + childCode
+						//strCode = strCode[:len(strCode)-1]+ childCode[1:]
+					}
+				}
+				str = true
+			} else {
+				if str {
+					// 将strCode拼接
+						xx = fmt.Sprintf("g.Append(PromiseString(%s))\n%s\n", strCode, childCode)
+				} else {
+						xx = fmt.Sprintf("%s\n", childCode)
+				}
+				str = false
+			}
+
+			defaultSlotCode += xx
+		}
+
+		if str && strCode != "" {
+			defaultSlotCode += fmt.Sprintf("g.Append(PromiseString(%s))\n", strCode)
 		}
 	}
 
-	if defaultSlotCode == "" {
-		defaultSlotCode = `""`
-	}
+	//if defaultSlotCode == "" {
+	//	defaultSlotCode = `""`
+	//}
 
 	switch e.NodeType {
 	case TextNode:
@@ -267,7 +300,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		text := safeStringCode(e.Text)
 		// 处理变量
 		text = injectVal(text)
-		eleCode = fmt.Sprintf(`%s`, text)
+		eleCode = fmt.Sprintf(`g.Append(%s)`, text)
 	case DocumentNode:
 		log.Infof("DocumentNode %+v", e)
 	case ElementNode:
@@ -285,7 +318,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				VOn:             e.VOn,
 			}
 			optionsCode := options.ToGoCode()
-			eleCode = fmt.Sprintf("r.Component_%s(%s)", componentName, optionsCode)
+			eleCode = fmt.Sprintf("g.Append(r.Component_%s(%s))", componentName, optionsCode)
 		} else if e.TagName == "template" {
 			if len(e.Directives) != 0 {
 				options := OptionsGen{
@@ -294,7 +327,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				}
 				optionsCode := options.ToGoCode()
 				// template组件支持自定义指令, 可以用于设置数据等
-				eleCode = fmt.Sprintf("r.Component_template(%s)", optionsCode)
+				eleCode = fmt.Sprintf("g.Append(r.Component_template(%s))", optionsCode)
 			} else {
 				// 直接使用子级
 				eleCode = defaultSlotCode
@@ -323,7 +356,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 				optionsCode := options.ToGoCode()
 
-				eleCode = fmt.Sprintf(`r.tag("%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
+				eleCode = fmt.Sprintf(`g.Append(r.tag("%s", %v, %s))`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAttrCode(e)
@@ -333,7 +366,8 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				} else if e.VText != "" {
 					children = genVText(e.VText)
 				}
-				eleCode = fmt.Sprintf(`"<%s"+%s+">"+%s+"</%s>"`, e.TagName, attrs, children, e.TagName)
+
+				eleCode = fmt.Sprintf("g.Append(\"<%s\"+%s+\">\")\n%s\ng.Append(\"</%s>\")", e.TagName, attrs, children, e.TagName)
 			}
 		}
 
@@ -378,8 +412,8 @@ func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map
 	namedSlotCode = map[string]string{}
 
 	// open if and func
-	code = fmt.Sprintf(`func ()string{
-if interfaceToBool(%s) {return %s`, condition, srcCode)
+	code = fmt.Sprintf(`func ()*PromiseGroup{
+if interfaceToBool(%s) { %s`, condition, srcCode)
 	// 继续处理else节点
 	for _, v := range e.ElseIf {
 		eleCode, namedSlotCode2 := c.GenEleCode(v.VueElement)
@@ -388,30 +422,32 @@ if interfaceToBool(%s) {return %s`, condition, srcCode)
 		}
 		switch v.Types {
 		case "else":
-			code += fmt.Sprintf(`} else { return %s`, eleCode)
+			code += fmt.Sprintf(`} else { %s`, eleCode)
 		case "elseif":
 			condition, err := ast.Js2Go(v.Condition, ScopeKey)
 			if err != nil {
 				panic(err)
 			}
-			code += fmt.Sprintf(`} else if interfaceToBool(%s) { return %s`, condition, eleCode)
+			code += fmt.Sprintf(`} else if interfaceToBool(%s) { %s`, condition, eleCode)
 		}
 	}
 
 	// close if and func
 	code += `
 }
-return ""
+return nil
 }()`
 	return
 }
 
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
-		e.SlotName: fmt.Sprintf(`func(props Props) string{
+		e.SlotName: fmt.Sprintf(`func(props Props) *PromiseGroup{
 	%s := extendScope(%s, map[string]interface{}{"%s": props})
 _ = %s
-return %s
+g:=&PromiseGroup{}
+%s
+return g
 }`, ScopeKey, ScopeKey, e.PropsKey, ScopeKey, srcCode),
 	}
 
@@ -430,21 +466,20 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	}
 
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
-	return fmt.Sprintf(`func ()string{
-  var b strings.Builder
-
+	return fmt.Sprintf(`
   for index, item := range interface2Slice(%s) {
-    b.WriteString(func(xscope *Scope) string{
+    g.AppendGroup(func(xscope *Scope) *PromiseGroup{
         %s := extendScope(xscope, map[string]interface{}{
           "%s": index,
           "%s": item,
         })
-
-        return %s
+		_ = %s
+		g:=&PromiseGroup{}
+		%s
+        return g
     }(%s))
   }
-return b.String()
-}()`, vfArrayCode, ScopeKey, vfIndex, vfItem, srcCode, ScopeKey)
+`, vfArrayCode, ScopeKey, vfIndex, vfItem, ScopeKey,srcCode, ScopeKey)
 }
 
 func genVHtml(value string) (code string) {
@@ -452,7 +487,7 @@ func genVHtml(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`interfaceToStr(%s)`, goCode)
+	return fmt.Sprintf(`g.Append(interfaceToStr(%s))`, goCode)
 }
 
 func genVText(value string) (code string) {
@@ -460,7 +495,7 @@ func genVText(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`interfaceToStr(%s, true)`, goCode)
+	return fmt.Sprintf(`g.Append(interfaceToStr(%s, true))`, goCode)
 }
 
 func NewCompiler() *Compiler {
@@ -468,6 +503,7 @@ func NewCompiler() *Compiler {
 		Components: map[string]string{
 			"component": "component",
 			"slot":      "slot",
+			"async":     "async",
 		},
 	}
 }

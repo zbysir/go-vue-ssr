@@ -1,4 +1,4 @@
-// cd internal/test/async
+// cd internal/test/async_true
 // go-vue-ssr -src=./ -to=./ -pkg=async
 
 package async
@@ -24,15 +24,19 @@ type data struct {
 // 10000    386,333,300 ns/op v1
 //          157,857,743 ns/op // v2异步
 //          134,125,250 ns/op // v2不异步
+//          120,333,878 ns/op
+//          184,286,029 ns/op  // 不异步
 // 1000     19,700,057 ns/op v1
 //          15,750,026 ns/op v2
+//          12,397,872
+//          11,760,439 // 不异步
 // 10		53,782 ns/op
 func BenchmarkString(b *testing.B) {
 	var ii interface{}
 	index := 0
 	var ds []*data
 	// 生成1000个数据
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000; i++ {
 		ds = append(ds, &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
@@ -55,8 +59,8 @@ func BenchmarkString(b *testing.B) {
 				"data": ii,
 			},
 		})
+		_ = g
 		g.Join()
-		b.Log(g.Len())
 	}
 }
 

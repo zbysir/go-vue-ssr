@@ -9,82 +9,124 @@ import (
 
 type _ strings.Builder
 
-type Promise interface {
-	Result() string
-}
-
-type PromiseString string
-
-func (p PromiseString) Result() string {
-	return string(p)
-}
-
-type PromiseFunc func() string
-
-func (p PromiseFunc) Result() string {
-	return p()
-}
-
-type PromiseGroup []Promise
-
-func (p PromiseGroup) Join() string {
-	b := strings.Builder{}
-	for _, v := range p {
-		b.WriteString(v.Result())
-	}
-
-	return b.String()
-}
-
-func (r *Render) Component_bench(options *Options) PromiseGroup {
+func (r *Render) Component_bench2(options *Options) *PromiseGroup {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
-	var g PromiseGroup
-	g = append(g, r.tag("div", true, &Options{
+
+	g := &PromiseGroup{}
+
+	g.Append(r.tag("div", true, &Options{
+		PropsClass: map[string]interface{}{"a": true,},
+		Class: []string{"b", },
+		Slots: map[string]NamedSlotFunc{"default": func(props Props) *PromiseGroup{g:=&PromiseGroup{} ;g.Append("<span"+mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true,})+mixinAttr(nil, nil, map[string]interface{}{"a": 1,})+">")
+			g.Append(interfaceToStr(scope.Get("data", "msg")))
+			g.Append("</span>")
+			func ()*PromiseGroup{
+				if interfaceToBool(scope.Get("a")) { g.Append("<div"+""+">")
+
+					g.Append("</div>")} else {
+					for index, item := range interface2Slice(scope.Get("a")) {
+						g.AppendGroup(func(xscope *Scope) *PromiseGroup{
+							scope := extendScope(xscope, map[string]interface{}{
+								"$index": index,
+								"id": item,
+							})
+							_ = scope
+							g:=&PromiseGroup{}
+							g.Append("<div"+""+">")
+
+							g.Append("</div>")
+
+							return g
+						}(scope))
+					}
+
+				}
+				return nil
+			}()
+
+			for index, item := range interface2Slice(scope.Get("data", "c")) {
+				g.AppendGroup(func(xscope *Scope) *PromiseGroup{
+					scope := extendScope(xscope, map[string]interface{}{
+						"$index": index,
+						"item": item,
+					})
+					_ = scope
+					g:=&PromiseGroup{}
+					g.Append("<div"+""+">")
+					g.Append(r.Component_async(&Options{
+						Slots: map[string]NamedSlotFunc{"default": func(props Props) *PromiseGroup{g:=&PromiseGroup{} ;g.Append("<bench"+mixinAttr(nil, nil, map[string]interface{}{"data": scope.Get("item"),})+">")
+
+							g.Append("</bench>")
+							;return g},},
+						P: options,
+						Scope: scope,
+					}))
+
+					g.Append("</div>")
+					return g
+				}(scope))
+			}
+
+			;return g},},
+		P: options,
+		Scope: scope,
+	}))
+	return g
+}
+func (r *Render) Component_bench(options *Options) *PromiseGroup {
+	scope := extendScope(r.Global.Scope, options.Props)
+	options.Directives.Exec(r, options)
+	_ = scope
+	var g = r.tag("div", true, &Options{
 		PropsClass: map[string]interface{}{"a": true},
 		Class:      []string{"b"},
-		Slots: map[string]NamedSlotFunc{"default": func(props Props) PromiseGroup {
-			var g PromiseGroup
-			g = append(g, PromiseString("<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": 1}) + ">\n        " + interfaceToStr(scope.Get("data", "msg"), true) + "\n    </span>" ))
+		Slots: map[string]NamedSlotFunc{"default": func(props Props) *PromiseGroup {
+			var g = &PromiseGroup{
+				Note: "div-slots",
+			}
+			g.Append(PromiseString("<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": 1}) + ">\n        " + interfaceToStr(scope.Get("data", "msg"), true) + "\n    </span>"))
+			g.AppendGroup(r.Component_async(&Options{
+				Slots: map[string]NamedSlotFunc{"default": func(props Props) *PromiseGroup {
+					var b = &PromiseGroup{
+						Note: "async-slots",
+					}
 
-			g = append(g, r.Component_async(&Options{
-				Slots: map[string]NamedSlotFunc{"default": func(props Props) PromiseGroup {
-					return func() PromiseGroup {
-						var b PromiseGroup
+					for index, item := range interface2Slice(scope.Get("data", "c")) {
+						b.AppendGroup(func(xscope *Scope) *PromiseGroup {
+							scope := extendScope(xscope, map[string]interface{}{
+								"$index": index,
+								"item":   item,
+							})
 
-						for index, item := range interface2Slice(scope.Get("data", "c")) {
-							b  = append(b, func(xscope *Scope) PromiseGroup {
-								scope := extendScope(xscope, map[string]interface{}{
-									"$index": index,
-									"item":   item,
-								})
+							var g = &PromiseGroup{
+								Note: "for-slot",
+							}
+							g.Append(PromiseString("<div>"))
+							g.AppendGroup(r.Component_bench(&Options{
+								Props: map[string]interface{}{"data": scope.Get("item")},
+								Slots: map[string]NamedSlotFunc{},
+								P:     options,
+								Scope: scope,
+							}))
 
-								var g PromiseGroup
-								g = append(g, PromiseString("<div>"))
-								g = append(g, r.Component_bench(&Options{
-									Props: map[string]interface{}{"data": scope.Get("item")},
-									Slots: map[string]NamedSlotFunc{},
-									P:     options,
-									Scope: scope,
-								})...)
-								g = append(g, PromiseString("</div>"))
-								return g
-							}(scope)...)
-						}
+							g.Append(PromiseString("</div>"))
+							return g
+						}(scope))
+					}
 
-						return b
-					}()
+					return b
+
 				}},
 				P:     options,
 				Scope: scope,
-			})...)
+			}))
 
 			return g
 		}},
 		P:     options,
 		Scope: scope,
-	})...)
-
+	})
 	return g
 }

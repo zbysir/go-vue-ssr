@@ -16,13 +16,15 @@ type data struct {
 }
 
 // 10000	50,954,582 ns/op
+//          113,300,130 ns/op
 // 1000		4,584,631 ns/op
+//          9,552,647 ns/op
 func BenchmarkString(b *testing.B) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
 	var ds []*data
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 1000; i++ {
 		ds = append(ds, &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
@@ -79,8 +81,9 @@ func TestString(b *testing.T) {
 	})
 }
 
-// 1000		64,660,367 ns/op
-// 100	947,680 ns/op
+// 公司
+// 1000		150,714,514 ns/op
+// 100  	2,181,452 ns/op
 func BenchmarkString2(b *testing.B) {
 	var ii interface{}
 	// 生成10000个嵌套数据
@@ -91,7 +94,7 @@ func BenchmarkString2(b *testing.B) {
 	}
 
 	head := d
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		n := &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
