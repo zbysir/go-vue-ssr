@@ -164,10 +164,16 @@ func (p *PromiseGroup) AppendGroup(s *PromiseGroup) {
 		return
 	}
 	if p.Cur == nil {
-		p.Cur = s.Cur
-		p.Next = s.Next
-		p.Last = s.Last
-		//*p = *s
+		if s.Next != nil {
+			// 跳过s的第一个元素, 将值存储到自己
+			// 注意: 如果s只有一个元素, 由于s.last存储的是s自己, p.Last也赋值为s.last的话, 如果跳过s, 就导致了p.Last存储了一个被抛弃(跳过)的元素, 当下次赋值p.Last.Next就会出错
+			p.Cur = s.Cur
+			p.Last = s.Last
+			p.Next = s.Next
+		} else {
+			// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
+			p.AppendPromise(s.Cur)
+		}
 		return
 	}
 	if p.Last == nil || s.Last == nil {

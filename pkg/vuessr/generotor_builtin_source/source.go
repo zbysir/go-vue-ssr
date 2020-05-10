@@ -152,6 +152,12 @@ func (p PromiseFunc) Result() string {
 	return p()
 }
 
+type PromiseChan chan  string
+
+func (p PromiseChan) Result() string {
+	return <-p
+}
+
 // 链表, 提升性能
 type PromiseGroup struct {
 	Cur  Promise
@@ -165,10 +171,16 @@ func (p *PromiseGroup) AppendGroup(s *PromiseGroup) {
 		return
 	}
 	if p.Cur == nil {
-		p.Cur = s.Cur
-		p.Next = s.Next
-		p.Last = s.Last
-		//*p = *s
+		if s.Next != nil {
+			// 跳过s的第一个元素, 将值存储到自己
+			// 注意: 如果s只有一个元素, 由于s.last存储的是s自己, p.Last也赋值为s.last的话, 如果跳过s, 就导致了p.Last存储了一个被抛弃(跳过)的元素, 当下次赋值p.Last.Next就会出错
+			p.Cur = s.Cur
+			p.Last = s.Last
+			p.Next = s.Next
+		} else {
+			// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
+			p.AppendPromise(s.Cur)
+		}
 		return
 	}
 	if p.Last == nil || s.Last == nil {
@@ -274,33 +286,22 @@ func (r *Render) Component_slot(options *Options) *PromiseGroup {
 	return p
 }
 
+
 func (r *Render) Component_async(options *Options) *PromiseGroup {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
 
-	s := make(chan string, 1)
+	s := make(PromiseChan, 1)
 	// 异步子节点计算
 	go func() {
-		ps := r.Component_slot(&Options{
-			Slots: map[string]NamedSlotFunc{},
-			P:     options,
-			Scope: scope,
-		})
+		ps := options.Slots.Exec("default", nil)
 		s <- ps.Join()
 	}()
 
-	var f PromiseFunc = func() string {
-		return <-s
-	}
 
-	p := &PromiseGroup{
-		Cur:  f,
-		Next: nil,
-		Last: nil,
-		Note: "func",
-	}
-	p.Last = p
+	p := &PromiseGroup{}
+	p.AppendPromise(s)
 
 	return p
 }
