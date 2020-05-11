@@ -243,7 +243,7 @@ func (p *PromiseGroup) AppendPromise(s Promise) {
 	}
 
 	// 将多个Promise拼接为一个, 以减少内存与链的长度
-	if appender, ok := p.Cur.(interface {
+	if appender, ok := p.Last.Cur.(interface {
 		AppendString(string)
 	}); ok {
 		if str, ok := s.(interface {
