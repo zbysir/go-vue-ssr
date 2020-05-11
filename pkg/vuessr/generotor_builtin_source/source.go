@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 type Render struct {
@@ -24,9 +23,6 @@ type Render struct {
 
 	VOnBinds []vOnBind
 	vOnDomId int
-
-	Worker chan struct{}
-	Wg     sync.WaitGroup
 }
 
 func newRender() *Render {
@@ -140,9 +136,38 @@ type Promise interface {
 	Result() string
 }
 
+// 将多个Promise拼接为一个, 以减少内存与链的长度
+type PromiseBuffer struct {
+	s *strings.Builder
+}
+
+func NewPromiseBuffer(s string) Promise {
+	var b strings.Builder
+	b.WriteString(s)
+	return &PromiseBuffer{
+		s: &b,
+	}
+}
+
+func (p *PromiseBuffer) Result() string {
+	return p.s.String()
+}
+
+func (p *PromiseBuffer) AppendString(s string) {
+	p.s.WriteString(s)
+}
+
+func (p PromiseBuffer) String() string {
+	return p.s.String()
+}
+
 type PromiseString string
 
 func (p PromiseString) Result() string {
+	return string(p)
+}
+
+func (p PromiseString) String() string {
 	return string(p)
 }
 
@@ -152,7 +177,7 @@ func (p PromiseFunc) Result() string {
 	return p()
 }
 
-type PromiseChan chan  string
+type PromiseChan chan string
 
 func (p PromiseChan) Result() string {
 	return <-p
@@ -216,6 +241,19 @@ func (p *PromiseGroup) AppendPromise(s Promise) {
 	if p.Last == nil {
 		panic("last不能为空")
 	}
+
+	// 将多个Promise拼接为一个, 以减少内存与链的长度
+	if appender, ok := p.Cur.(interface {
+		AppendString(string)
+	}); ok {
+		if str, ok := s.(interface {
+			String() string
+		}); ok {
+			appender.AppendString(str.String())
+			return
+		}
+	}
+
 	last := &PromiseGroup{
 		Cur: s,
 	}
@@ -228,7 +266,10 @@ func (p *PromiseGroup) AppendString(s string) {
 		return
 	}
 
-	p.AppendPromise(PromiseString(s))
+	// count 6443, 116ms
+	// p.AppendPromise(PromiseString(s))
+	// count 2694, 110ms
+	p.AppendPromise(NewPromiseBuffer(s))
 }
 
 func (p *PromiseGroup) Join() string {
@@ -238,8 +279,10 @@ func (p *PromiseGroup) Join() string {
 
 	b := strings.Builder{}
 
+	var i int
 	for cur := p; cur != nil; cur = cur.Next {
 		b.WriteString(cur.Cur.Result())
+		i++
 	}
 
 	return b.String()
@@ -286,7 +329,6 @@ func (r *Render) Component_slot(options *Options) *PromiseGroup {
 	return p
 }
 
-
 func (r *Render) Component_async(options *Options) *PromiseGroup {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
@@ -298,7 +340,6 @@ func (r *Render) Component_async(options *Options) *PromiseGroup {
 		ps := options.Slots.Exec("default", nil)
 		s <- ps.Join()
 	}()
-
 
 	p := &PromiseGroup{}
 	p.AppendPromise(s)
