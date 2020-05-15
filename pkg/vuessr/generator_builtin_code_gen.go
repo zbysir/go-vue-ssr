@@ -20,9 +20,6 @@ type Render struct {
 	Components map[string]ComponentFunc
 	// 指令
 	directives map[string]DirectivesFunc
-
-	VOnBinds []vOnBind
-	vOnDomId int
 }
 
 func newRender() *Render {
@@ -30,8 +27,6 @@ func newRender() *Render {
 		Global:     &Global{NewScope()},
 		Components: nil,
 		directives: nil,
-		VOnBinds:   nil,
-		vOnDomId:   0,
 	}
 }
 
@@ -148,7 +143,7 @@ func (r *Render) Component_slot(options *Options) string {
 		name = "default"
 	}
 	props := options.Props
-	injectSlotFunc,ok := options.P.Slots[name]
+	injectSlotFunc, ok := options.P.Slots[name]
 
 	// 如果没有传递slot 则使用自身默认的slot
 	if !ok {
@@ -174,7 +169,7 @@ func (r *Render) Component_template(options *Options) string {
 	// exec directive
 	options.Directives.Exec(r, options)
 
-	return options.Slots.Exec("default",nil)
+	return options.Slots.Exec("default", nil)
 }
 
 // 动态tag
@@ -184,27 +179,6 @@ func (r *Render) Component_template(options *Options) string {
 func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 	// exec directive
 	options.Directives.Exec(r, options)
-
-	// exec von
-	// 生成唯一id 并存放在dom上
-	// 存储数据
-	if len(options.VonDirectives) != 0 {
-		r.vOnDomId++
-		dom := fmt.Sprintf("%d", r.vOnDomId)
-		for _, d := range options.VonDirectives {
-			r.VOnBinds = append(r.VOnBinds, vOnBind{
-				Func:        d.Func,
-				DomSelector: dom,
-				Args:        d.Args,
-				Event:       d.Event,
-			},
-			)
-		}
-		if options.Attrs == nil {
-			options.Attrs = map[string]string{}
-		}
-		options.Attrs["data-von-"+dom] = ""
-	}
 
 	var p *Options
 	if isRoot {
@@ -216,7 +190,7 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slots.Exec("default",nil), tagName)
+	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slots.Exec("default", nil), tagName)
 	return eleCode
 }
 
@@ -395,7 +369,7 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 	}
 
 	if len(class) != 0 {
-		str = fmt.Sprintf(" class=\"%s\"", strings.Join(class, " "))
+		str = " class=\"" + strings.Join(class, " ") + "\""
 	}
 
 	return
@@ -433,7 +407,7 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[
 
 	styleCode := genStyle(style)
 	if styleCode != "" {
-		str = fmt.Sprintf(" style=\"%s\"", styleCode)
+		str = " style=\"" + styleCode + "\""
 	}
 
 	return
@@ -473,7 +447,7 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 		return ""
 	}
 
-	return fmt.Sprintf(" %s", c)
+	return " " + c
 }
 
 func getSortedKey(m map[string]string) (keys []string) {
@@ -495,31 +469,36 @@ func getSortedKey(m map[string]string) (keys []string) {
 func genStyle(style map[string]string) string {
 	sortedKeys := getSortedKey(style)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := style[k]
-		st += fmt.Sprintf("%s: %s; ", k, v)
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+		st.WriteString(k + ": " + v + ";")
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func genAttr(attr map[string]string) string {
 	sortedKeys := getSortedKey(attr)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := attr[k]
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+
 		if v != "" {
-			st += fmt.Sprintf("%s=\"%s\" ", k, v)
+			st.WriteString(k + "=" + "\"" + v + "\"")
 		} else {
-			st += fmt.Sprintf("%s ", k)
+			st.WriteString(k)
 		}
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
