@@ -3,8 +3,9 @@
 package bench_buffer
 
 func NewRender() *Render {
-	r := &Render{}
+	r := newRender()
 	r.Components = map[string]ComponentFunc{
+		"async":     r.Component_async,
 		"bench":     r.Component_bench,
 		"component": r.Component_component,
 		"slot":      r.Component_slot,

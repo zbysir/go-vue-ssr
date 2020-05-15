@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Render struct {
@@ -19,27 +20,44 @@ type Render struct {
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
-	directives map[string]DirectivesFunc
-
-	VOnBinds []vOnBind
-	vOnDomId int
+	directives   map[string]DirectivesFunc
+	spansCreator func() Spans
+	G            Spans
 }
 
-func newRender() *Render {
-	return &Render{
+func (r Render) newSpans() Spans {
+	return r.spansCreator()
+}
+
+func (r Render) NewSpans() Spans {
+	return r.newSpans()
+}
+
+func newRender(options ...RenderOption) *Render {
+	r := &Render{
 		Global:     &Global{NewScope()},
 		Components: nil,
 		directives: nil,
-		VOnBinds:   nil,
-		vOnDomId:   0,
+		spansCreator: func() Spans {
+			return NewBufferSpans()
+		},
 	}
+
+	for _, o := range options {
+		o(r)
+	}
+
+	r.G = r.spansCreator()
+
+	return r
 }
 
-type vOnBind struct {
-	Func        string
-	DomSelector string
-	Args        []interface{}
-	Event       string
+type RenderOption func(r *Render)
+
+func WithSpanCreator(c func() Spans) RenderOption {
+	return func(r *Render) {
+		r.spansCreator = c
+	}
 }
 
 type Global struct {
@@ -132,174 +150,190 @@ func (s *Scope) Get(k ...string) (v interface{}) {
 	return
 }
 
-type Promise interface {
+// Spans存储多个Span
+type Spans interface {
+	AppendSpan(Span)
+	AppendString(string)
+	AppendSpans(Spans)
+	Result() string
+}
+
+type Span interface {
 	Result() string
 }
 
 // 将多个Promise拼接为一个, 以减少内存与链的长度
-type PromiseBuffer struct {
+type BufferSpan struct {
 	s *strings.Builder
 }
 
-func NewPromiseBuffer(s string) Promise {
+func (p *BufferSpan) Result() string {
+	return p.s.String()
+}
+
+func (p *BufferSpan) AppendString(s string) {
+	p.s.WriteString(s)
+}
+
+func NewBufferSpan(s string) Span {
 	var b strings.Builder
 	b.WriteString(s)
-	return &PromiseBuffer{
+	return &BufferSpan{
 		s: &b,
 	}
 }
 
-func (p *PromiseBuffer) Result() string {
-	return p.s.String()
+// buffer块, 同步计算
+type BufferSpans struct {
+	s *strings.Builder
 }
 
-func (p *PromiseBuffer) AppendString(s string) {
+func (p BufferSpans) AppendSpan(span Span) {
+	p.s.WriteString(span.Result())
+}
+
+func (p BufferSpans) AppendString(s string) {
 	p.s.WriteString(s)
 }
 
-func (p PromiseBuffer) String() string {
+func (p BufferSpans) AppendSpans(spans Spans) {
+	p.s.WriteString(spans.Result())
+}
+
+func (p BufferSpans) Result() string {
 	return p.s.String()
 }
 
-type PromiseString string
-
-func (p PromiseString) Result() string {
-	return string(p)
-}
-
-func (p PromiseString) String() string {
-	return string(p)
-}
-
-type PromiseFunc func() string
-
-func (p PromiseFunc) Result() string {
-	return p()
-}
-
-type PromiseChan chan string
-
-func (p PromiseChan) Result() string {
-	return <-p
-}
-
-// 链表, 提升性能
-type PromiseGroup struct {
-	Cur  Promise
-	Next *PromiseGroup
-	Last *PromiseGroup // 用于在append时提升速度
-	Note string
-}
-
-func (p *PromiseGroup) AppendGroup(s *PromiseGroup) {
-	if s == nil || s.Cur == nil {
-		return
+func NewBufferSpans() Spans {
+	var b strings.Builder
+	return &BufferSpans{
+		s: &b,
 	}
-	if p.Cur == nil {
-		if s.Next != nil {
-			// 跳过s的第一个元素, 将值存储到自己
-			// 注意: 如果s只有一个元素, 由于s.last存储的是s自己, p.Last也赋值为s.last的话, 如果跳过s, 就导致了p.Last存储了一个被抛弃(跳过)的元素, 当下次赋值p.Last.Next就会出错
-			p.Cur = s.Cur
-			p.Last = s.Last
-			p.Next = s.Next
-		} else {
-			// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
-			p.AppendPromise(s.Cur)
+}
+
+// ListSpans将存储Span链表, 在最后计算结果, 可以实现并行计算.
+type ListSpans struct {
+	Value Span
+	Next  *ListSpans
+	Last  *ListSpans // 用于在append时提升速度
+}
+
+func (p *ListSpans) AppendSpans(s Spans) {
+	switch t := s.(type) {
+	case *ListSpans:
+		if t == nil || t.Value == nil {
+			return
 		}
-		return
+
+		if p.Value == nil {
+			if t.Next != nil {
+				// 跳过s的第一个元素, 将值存储到自己
+				// 注意: 如果s只有一个元素, 由于s.last存储的是s自己, p.Last也赋值为s.last的话, 如果跳过s, 就导致了p.Last存储了一个被抛弃(跳过)的元素, 当下次赋值p.Last.Next就会出错
+				p.Value = t.Value
+				p.Last = t.Last
+				p.Next = t.Next
+			} else {
+				// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
+				p.AppendSpan(t.Value)
+			}
+			return
+		}
+
+		if p.Last == nil || t.Last == nil {
+			panic("last不能为空")
+		}
+
+		// TODO 如果Last和t第一个元素可以合并, 则再合并一次
+		p.Last.Next = t
+		p.Last = t.Last
+	default:
+		panic("listSpan support Append listSpan only")
 	}
-	if p.Last == nil || s.Last == nil {
-		panic("last不能为空")
-	}
-	p.Last.Next = s
-	p.Last = s.Last
 }
 
-// 支持Promise/string/PromiseGroup
-func (p *PromiseGroup) Append(i interface{}) {
-	switch t := i.(type) {
-	case *PromiseGroup:
-		p.AppendGroup(t)
-	case Promise:
-		p.AppendPromise(t)
-	case string:
-		p.AppendString(t)
-	}
+func (l *ListSpans) AppendString(s string) {
+	l.AppendSpan(NewBufferSpan(s))
 }
 
-func (p *PromiseGroup) AppendPromise(s Promise) {
-	if s == nil {
-		return
-	}
-
-	if p.Cur == nil {
-		p.Cur = s
+func (p *ListSpans) AppendSpan(s Span) {
+	if p.Value == nil {
+		p.Value = s
 		p.Last = p
 		return
 	}
 
-	if p.Last == nil {
-		panic("last不能为空")
-	}
-
-	// 将多个Promise拼接为一个, 以减少内存与链的长度
-	if appender, ok := p.Last.Cur.(interface {
-		AppendString(string)
-	}); ok {
-		if str, ok := s.(interface {
-			String() string
-		}); ok {
-			appender.AppendString(str.String())
+	// 如果s是StringSpan并且p.Last也是StringSpan的话, 就将s的值附加到Last上
+	// 以减少链的长度
+	if ss, ok := s.(*BufferSpan); ok {
+		if ls, ok := p.Last.Value.(*BufferSpan); ok {
+			ls.AppendString(ss.Result())
 			return
 		}
 	}
 
-	last := &PromiseGroup{
-		Cur: s,
+	last := &ListSpans{
+		Value: s,
 	}
 
 	p.Last.Next = last
 	p.Last = last
 }
-func (p *PromiseGroup) AppendString(s string) {
-	if s == "" {
-		return
-	}
 
-	// count 6443, 116ms
-	// p.AppendPromise(PromiseString(s))
-	// count 2694, 110ms
-	p.AppendPromise(NewPromiseBuffer(s))
-}
-
-func (p *PromiseGroup) Join() string {
-	if p == nil || p.Cur == nil {
+func (l *ListSpans) Result() string {
+	if l == nil || l.Value == nil {
 		return ""
 	}
 
 	b := strings.Builder{}
 
-	var i int
-	for cur := p; cur != nil; cur = cur.Next {
-		b.WriteString(cur.Cur.Result())
-		i++
+	for cur := l; cur != nil; cur = cur.Next {
+		b.WriteString(cur.Value.Result())
 	}
 
 	return b.String()
 }
 
-func (p *PromiseGroup) Len() int {
-	if p == nil || p.Cur == nil {
+func (l *ListSpans) Length() int {
+	if l == nil || l.Value == nil {
 		return 0
 	}
 
-	var i int
-
-	for cur := p; cur != nil; cur = cur.Next {
+	i := 0
+	for cur := l; cur != nil; cur = cur.Next {
 		i++
 	}
 
 	return i
+}
+
+func NewListSpans() Spans {
+	return &ListSpans{}
+}
+
+type ChanSpan struct {
+	c       chan string
+	getOnce sync.Once
+	setOnce sync.Once
+	r       string
+}
+
+func (p *ChanSpan) Result() string {
+	p.getOnce.Do(func() {
+		p.r = <-p.c
+	})
+	return p.r
+}
+
+func (p *ChanSpan) Done(s string) {
+	p.setOnce.Do(func() {
+		p.c <- s
+	})
+}
+
+func NewChanSpan() *ChanSpan {
+	return &ChanSpan{
+		c: make(chan string, 1),
+	}
 }
 
 // 注册指令
@@ -312,7 +346,7 @@ func (r *Render) Directive(name string, f DirectivesFunc) {
 }
 
 // 内置组件Slot, 将渲染父级传递的slot.
-func (r *Render) Component_slot(options *Options) *PromiseGroup {
+func (r *Render) Component_slot(options *Options) Spans {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
@@ -329,25 +363,25 @@ func (r *Render) Component_slot(options *Options) *PromiseGroup {
 	return p
 }
 
-func (r *Render) Component_async(options *Options) *PromiseGroup {
+func (r *Render) Component_async(options *Options) Spans {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
 
-	s := make(PromiseChan, 1)
+	s := NewChanSpan()
 	// 异步子节点计算
 	go func() {
 		ps := options.Slots.Exec("default", nil)
-		s <- ps.Join()
+		s.Done(ps.Result())
 	}()
 
-	p := &PromiseGroup{}
-	p.AppendPromise(s)
+	p := r.G
+	p.AppendSpan(s)
 
 	return p
 }
 
-func (r *Render) Component_component(options *Options) *PromiseGroup {
+func (r *Render) Component_component(options *Options) Spans {
 	is, ok := options.Props["is"].(string)
 	if !ok {
 		return nil
@@ -355,16 +389,12 @@ func (r *Render) Component_component(options *Options) *PromiseGroup {
 	if c, ok := r.Components[is]; ok {
 		return c(options)
 	}
-	p := &PromiseGroup{
-		Cur:  PromiseString(fmt.Sprintf("<p>not register com: %s</p>", is)),
-		Next: nil,
-		Last: nil,
-	}
-	p.Last = p
+	p := r.G
+	p.AppendString(fmt.Sprintf("<p>not register com: %s</p>", is))
 	return p
 }
 
-func (r *Render) Component_template(options *Options) *PromiseGroup {
+func (r *Render) Component_template(options *Options) Spans {
 	// exec directive
 	options.Directives.Exec(r, options)
 
@@ -375,30 +405,9 @@ func (r *Render) Component_template(options *Options) *PromiseGroup {
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) tag(tagName string, isRoot bool, options *Options) *PromiseGroup {
+func (r *Render) tag(tagName string, isRoot bool, options *Options) Spans {
 	// exec directive
 	options.Directives.Exec(r, options)
-
-	// exec von
-	// 生成唯一id 并存放在dom上
-	// 存储数据
-	if len(options.VonDirectives) != 0 {
-		r.vOnDomId++
-		dom := fmt.Sprintf("%d", r.vOnDomId)
-		for _, d := range options.VonDirectives {
-			r.VOnBinds = append(r.VOnBinds, vOnBind{
-				Func:        d.Func,
-				DomSelector: dom,
-				Args:        d.Args,
-				Event:       d.Event,
-			},
-			)
-		}
-		if options.Attrs == nil {
-			options.Attrs = map[string]string{}
-		}
-		options.Attrs["data-von-"+dom] = ""
-	}
 
 	var p *Options
 	if isRoot {
@@ -410,12 +419,10 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) *PromiseGrou
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	slotG := options.Slots.Exec("default", nil)
-	var g = &PromiseGroup{}
-	g.Append(PromiseString(fmt.Sprintf("<%s%s>", tagName, attr)))
-	g.AppendGroup(slotG)
-
-	g.Append(PromiseString(fmt.Sprintf("</%s>", tagName)))
+	var g = r.G
+	g.AppendString(fmt.Sprintf("<%s%s>", tagName, attr))
+	options.Slots.Exec("default", nil)
+	g.AppendString(fmt.Sprintf("</%s>", tagName))
 
 	return g
 }
@@ -527,7 +534,7 @@ func (p Props) CanBeAttr() Props {
 
 type Slots map[string]NamedSlotFunc
 
-func (s Slots) Exec(name string, slotProps Props) *PromiseGroup {
+func (s Slots) Exec(name string, slotProps Props) Spans {
 	if s == nil {
 		return nil
 	}
@@ -539,13 +546,13 @@ func (s Slots) Exec(name string, slotProps Props) *PromiseGroup {
 }
 
 // 组件的render函数
-type ComponentFunc func(options *Options) *PromiseGroup
+type ComponentFunc func(options *Options) Spans
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(slotProps Props) *PromiseGroup
+type NamedSlotFunc func(slotProps Props) Spans
 
-func (f NamedSlotFunc) Exec(slotProps Props) *PromiseGroup {
+func (f NamedSlotFunc) Exec(slotProps Props) Spans {
 	if f == nil {
 		return nil
 	}
@@ -595,7 +602,7 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 	}
 
 	if len(class) != 0 {
-		str = fmt.Sprintf(" class=\"%s\"", strings.Join(class, " "))
+		str = " class=\"" + strings.Join(class, " ") + "\""
 	}
 
 	return
@@ -633,7 +640,7 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[
 
 	styleCode := genStyle(style)
 	if styleCode != "" {
-		str = fmt.Sprintf(" style=\"%s\"", styleCode)
+		str = " style=\"" + styleCode + "\""
 	}
 
 	return
@@ -673,7 +680,7 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 		return ""
 	}
 
-	return fmt.Sprintf(" %s", c)
+	return " " + c
 }
 
 func getSortedKey(m map[string]string) (keys []string) {
@@ -695,31 +702,36 @@ func getSortedKey(m map[string]string) (keys []string) {
 func genStyle(style map[string]string) string {
 	sortedKeys := getSortedKey(style)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := style[k]
-		st += fmt.Sprintf("%s: %s; ", k, v)
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+		st.WriteString(k + ": " + v + ";")
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func genAttr(attr map[string]string) string {
 	sortedKeys := getSortedKey(attr)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := attr[k]
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+
 		if v != "" {
-			st += fmt.Sprintf("%s=\"%s\" ", k, v)
+			st.WriteString(k + "=" + "\"" + v + "\"")
 		} else {
-			st += fmt.Sprintf("%s ", k)
+			st.WriteString(k)
 		}
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func getStyleFromProps(styleProps map[string]interface{}) map[string]string {

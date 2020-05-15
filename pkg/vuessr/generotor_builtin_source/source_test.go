@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 )
 
 func TestName(t *testing.T) {
@@ -18,46 +19,92 @@ func TestName(t *testing.T) {
 	}
 }
 
-func TestPromise(t *testing.T) {
-	var p = &PromiseGroup{
+func TestListSpans(t *testing.T) {
+	var p = NewListSpans()
+
+	p.AppendString("1")
+	p.AppendString("2")
+	p.AppendString("3")
+	{
+		s := NewChanSpan()
+		go func() {
+			time.Sleep(2 * time.Second)
+			s.Done("4")
+		}()
+		p.AppendSpan(s)
 	}
 
-	p.Append("1")
-	p.Append("2")
-	p.Append(PromiseString("3"))
-	//{
-	//	s := make(PromiseChan, 1)
-	//	go func() {
-	//		time.Sleep(2 * time.Second)
-	//		s <- "4"
-	//	}()
-	//	p.Append(s)
-	//}
+	t.Log("3", p.Result())
 
-	t.Log("3", p.Join())
-
-	p3 := &PromiseGroup{
-		Note: "p3",
-	}
+	p3 := NewListSpans()
 	p3.AppendString("5")
 
 	//t.Log("5", p.Join())
 
-	p2 := &PromiseGroup{
-		Note: "p2",
+	p2 := NewListSpans()
+	p2.AppendSpans(p3)
+
+	p.AppendSpan(p2)
+
+	t.Log("5", p.Result())
+
+	p.AppendString("6")
+
+	// for cur := p; cur != nil; cur = cur.Next {
+	// 	t.Log(cur.Note)
+	// }
+
+	want := "123456"
+	r := p.Result()
+
+	if r != want {
+		t.Fatalf("want:%s but:%s", want, r)
 	}
-	p2.AppendGroup(p3)
+	t.Log("ok")
 
-	p.AppendGroup(p2)
+}
 
-	t.Log("5", p.Join())
+func TestBufferSpans(t *testing.T) {
+	var p = NewBufferSpans()
 
-	p.Append("6")
-
-	for cur := p; cur != nil; cur = cur.Next {
-		t.Log(cur.Note)
-
+	p.AppendString("1")
+	p.AppendString("2")
+	p.AppendString("3")
+	{
+		s := NewChanSpan()
+		go func() {
+			time.Sleep(2 * time.Second)
+			s.Done("4")
+		}()
+		p.AppendSpan(s)
 	}
 
-	t.Log(p.Join())
+	t.Log("3", p.Result())
+
+	p3 := NewListSpans()
+	p3.AppendString("5")
+
+	//t.Log("5", p.Join())
+
+	p2 := NewListSpans()
+	p2.AppendSpans(p3)
+
+	p.AppendSpan(p2)
+
+	t.Log("5", p.Result())
+
+	p.AppendString("6")
+
+	// for cur := p; cur != nil; cur = cur.Next {
+	// 	t.Log(cur.Note)
+	// }
+
+	want := "123456"
+	r := p.Result()
+
+	if r != want {
+		t.Fatalf("want:%s but:%s", want, r)
+	}
+	t.Log("ok")
+
 }

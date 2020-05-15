@@ -1,5 +1,5 @@
-// cd internal/test/bench_string
-// go-vue-ssr -src=./ -to=./ -pkg=bench_string
+// cd internal/test/bench_buffer
+// go-vue-ssr -src=./ -to=./ -pkg=bench_buffer
 
 package bench_buffer
 

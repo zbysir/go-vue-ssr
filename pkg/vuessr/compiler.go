@@ -26,7 +26,6 @@ type OptionsGen struct {
 	DefaultSlotCode string            // 子节点code, 用于默认的插槽
 	NamedSlotCode   map[string]string // 具名插槽
 	Directives      []Directive       // 指令代码
-	VOn             []VOnDirective    // v-on指令
 }
 
 func sliceStringToGoCode(m []string) string {
@@ -159,7 +158,11 @@ func (o *OptionsGen) ToGoCode() string {
 
 	children := o.DefaultSlotCode
 	if children != `""` {
-		slot["default"] = fmt.Sprintf(`func(props Props) *PromiseGroup{g:=&PromiseGroup{} ;%s;return g}`, children)
+		slot["default"] = fmt.Sprintf(`func(props Props) Spans{
+g := r.newSpans()
+%s
+return g
+}`, children)
 	}
 
 	for k, v := range o.NamedSlotCode {
@@ -188,24 +191,6 @@ func (o *OptionsGen) ToGoCode() string {
 		dir += "}"
 
 		c += fmt.Sprintf("Directives: %s,\n", dir)
-	}
-
-	if len(o.VOn) != 0 {
-		on := "[]vonDirective{\n"
-		for _, v := range o.VOn {
-			// 方法:
-			funcName := v.Func
-			// 参数:
-			args, err := ast.Js2Go("["+v.Args+"]", ScopeKey)
-			if err != nil {
-				panic(err)
-			}
-
-			on += fmt.Sprintf("{Func: \"%s\", Args: %s, Event: \"%s\"},\n", funcName, args, v.Event)
-		}
-
-		on += "}"
-		c += fmt.Sprintf("VonDirectives: %s,\n", on)
 	}
 
 	// Scope
@@ -273,9 +258,10 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			} else {
 				if str {
 					// 将strCode拼接
-						xx = fmt.Sprintf("g.Append(PromiseString(%s))\n%s\n", strCode, childCode)
+					// todo 判断childCode为空
+					xx = fmt.Sprintf("r.G.AppendString(%s)\n%s\n", strCode, childCode)
 				} else {
-						xx = fmt.Sprintf("%s\n", childCode)
+					xx = fmt.Sprintf("%s\n", childCode)
 				}
 				str = false
 			}
@@ -284,7 +270,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		}
 
 		if str && strCode != "" {
-			defaultSlotCode += fmt.Sprintf("g.Append(PromiseString(%s))\n", strCode)
+			defaultSlotCode += fmt.Sprintf("r.G.AppendString(%s)\n", strCode)
 		}
 	}
 
@@ -300,7 +286,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		text := safeStringCode(e.Text)
 		// 处理变量
 		text = injectVal(text)
-		eleCode = fmt.Sprintf(`g.Append(%s)`, text)
+		eleCode = fmt.Sprintf(`r.G.AppendString(%s)`, text)
 	case DocumentNode:
 		log.Infof("DocumentNode %+v", e)
 	case ElementNode:
@@ -315,10 +301,9 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				DefaultSlotCode: defaultSlotCode,
 				NamedSlotCode:   namedSlotCode,
 				Directives:      e.Directives,
-				VOn:             e.VOn,
 			}
 			optionsCode := options.ToGoCode()
-			eleCode = fmt.Sprintf("g.Append(r.Component_%s(%s))", componentName, optionsCode)
+			eleCode = fmt.Sprintf("r.G.AppendSpans(r.Component_%s(%s))", componentName, optionsCode)
 		} else if e.TagName == "template" {
 			if len(e.Directives) != 0 {
 				options := OptionsGen{
@@ -327,7 +312,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				}
 				optionsCode := options.ToGoCode()
 				// template组件支持自定义指令, 可以用于设置数据等
-				eleCode = fmt.Sprintf("g.Append(r.Component_template(%s))", optionsCode)
+				eleCode = fmt.Sprintf("r.G.AppendSpans(r.Component_template(%s))", optionsCode)
 			} else {
 				// 直接使用子级
 				eleCode = defaultSlotCode
@@ -341,7 +326,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
 
 			// 动态节点
-			if e.IsRoot || len(e.Directives) != 0 || len(e.VOn) != 0 {
+			if e.IsRoot || len(e.Directives) != 0  {
 				options := OptionsGen{
 					Props:           e.Props,
 					Attrs:           e.Attrs,
@@ -351,12 +336,11 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 					DefaultSlotCode: defaultSlotCode,
 					NamedSlotCode:   namedSlotCode,
 					Directives:      e.Directives,
-					VOn:             e.VOn,
 				}
 
 				optionsCode := options.ToGoCode()
 
-				eleCode = fmt.Sprintf(`g.Append(r.tag("%s", %v, %s))`, e.TagName, e.IsRoot, optionsCode)
+				eleCode = fmt.Sprintf(`r.G.AppendSpans(r.tag("%s", %v, %s))`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAttrCode(e)
@@ -367,7 +351,8 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 					children = genVText(e.VText)
 				}
 
-				eleCode = fmt.Sprintf("g.Append(\"<%s\"+%s+\">\")\n%s\ng.Append(\"</%s>\")", e.TagName, attrs, children, e.TagName)
+				// todo 判断children为空
+				eleCode = fmt.Sprintf("r.G.AppendString(\"<%s\"+%s+\">\")\n%s\nr.G.AppendString(\"</%s>\")", e.TagName, attrs, children, e.TagName)
 			}
 		}
 
@@ -411,8 +396,8 @@ func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map
 	}
 	namedSlotCode = map[string]string{}
 
-	// open if and func
-	code = fmt.Sprintf(`func ()*PromiseGroup{
+	// open if
+	code = fmt.Sprintf(`
 if interfaceToBool(%s) { %s`, condition, srcCode)
 	// 继续处理else节点
 	for _, v := range e.ElseIf {
@@ -432,20 +417,18 @@ if interfaceToBool(%s) { %s`, condition, srcCode)
 		}
 	}
 
-	// close if and func
+	// close if
 	code += `
-}
-return nil
-}()`
+}`
 	return
 }
 
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
-		e.SlotName: fmt.Sprintf(`func(props Props) *PromiseGroup{
+		e.SlotName: fmt.Sprintf(`func(props Props) Spans{
 	%s := extendScope(%s, map[string]interface{}{"%s": props})
 _ = %s
-g:=&PromiseGroup{}
+g := r.newSpans()
 %s
 return g
 }`, ScopeKey, ScopeKey, e.PropsKey, ScopeKey, srcCode),
@@ -468,18 +451,18 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
 	return fmt.Sprintf(`
   for index, item := range interface2Slice(%s) {
-    g.AppendGroup(func(xscope *Scope) *PromiseGroup{
+    r.G.AppendSpans(func(xscope *Scope) Spans{
         %s := extendScope(xscope, map[string]interface{}{
           "%s": index,
           "%s": item,
         })
 		_ = %s
-		g:=&PromiseGroup{}
+		g := r.newSpans()
 		%s
         return g
     }(%s))
   }
-`, vfArrayCode, ScopeKey, vfIndex, vfItem, ScopeKey,srcCode, ScopeKey)
+`, vfArrayCode, ScopeKey, vfIndex, vfItem, ScopeKey, srcCode, ScopeKey)
 }
 
 func genVHtml(value string) (code string) {
@@ -487,7 +470,7 @@ func genVHtml(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`g.Append(interfaceToStr(%s))`, goCode)
+	return fmt.Sprintf(`r.G.AppendString(interfaceToStr(%s))`, goCode)
 }
 
 func genVText(value string) (code string) {
@@ -495,7 +478,7 @@ func genVText(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`g.Append(interfaceToStr(%s, true))`, goCode)
+	return fmt.Sprintf(`r.G.AppendString(interfaceToStr(%s, true))`, goCode)
 }
 
 func NewCompiler() *Compiler {
