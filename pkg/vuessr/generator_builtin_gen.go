@@ -197,7 +197,7 @@ func (p BufferSpans) AppendString(s string) {
 }
 
 func (p BufferSpans) AppendSpans(spans Spans) {
-	p.s.WriteString(spans.Result())
+
 }
 
 func (p BufferSpans) Result() string {
