@@ -20,17 +20,12 @@ type Render struct {
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
-	directives   map[string]DirectivesFunc
-	spansCreator func() Spans
-	G            Spans
+	directives    map[string]DirectivesFunc
+	writerCreator func() Writer
 }
 
-func (r Render) newSpans() Spans {
-	return r.spansCreator()
-}
-
-func (r Render) NewSpans() Spans {
-	return r.newSpans()
+func (r Render) NewWriter() Writer {
+	return r.writerCreator()
 }
 
 func newRender(options ...RenderOption) *Render {
@@ -38,7 +33,7 @@ func newRender(options ...RenderOption) *Render {
 		Global:     &Global{NewScope()},
 		Components: nil,
 		directives: nil,
-		spansCreator: func() Spans {
+		writerCreator: func() Writer {
 			return NewBufferSpans()
 		},
 	}
@@ -47,16 +42,14 @@ func newRender(options ...RenderOption) *Render {
 		o(r)
 	}
 
-	r.G = r.spansCreator()
-
 	return r
 }
 
 type RenderOption func(r *Render)
 
-func WithSpanCreator(c func() Spans) RenderOption {
+func WithWriter(c func() Writer) RenderOption {
 	return func(r *Render) {
-		r.spansCreator = c
+		r.writerCreator = c
 	}
 }
 
@@ -150,11 +143,11 @@ func (s *Scope) Get(k ...string) (v interface{}) {
 	return
 }
 
-// Spans存储多个Span
-type Spans interface {
-	AppendSpan(Span)
-	AppendString(string)
-	AppendSpans(Spans)
+type Writer interface {
+	// 如果需要实现异步计算, 则需要将span存储, 在最后统一计算出string.
+	WriteSpan(Span)
+	// 如果是同步计算, 使用WriteString会将string结果直接存储或者拼接
+	WriteString(string)
 	Result() string
 }
 
@@ -171,7 +164,7 @@ func (p *BufferSpan) Result() string {
 	return p.s.String()
 }
 
-func (p *BufferSpan) AppendString(s string) {
+func (p *BufferSpan) WriteString(s string) {
 	p.s.WriteString(s)
 }
 
@@ -184,29 +177,25 @@ func NewBufferSpan(s string) Span {
 }
 
 // buffer块, 同步计算
-type BufferSpans struct {
+type BufferWriter struct {
 	s *strings.Builder
 }
 
-func (p BufferSpans) AppendSpan(span Span) {
+func (p BufferWriter) WriteSpan(span Span) {
 	p.s.WriteString(span.Result())
 }
 
-func (p BufferSpans) AppendString(s string) {
+func (p BufferWriter) WriteString(s string) {
 	p.s.WriteString(s)
 }
 
-func (p BufferSpans) AppendSpans(spans Spans) {
-
-}
-
-func (p BufferSpans) Result() string {
+func (p BufferWriter) Result() string {
 	return p.s.String()
 }
 
-func NewBufferSpans() Spans {
+func NewBufferSpans() Writer {
 	var b strings.Builder
-	return &BufferSpans{
+	return &BufferWriter{
 		s: &b,
 	}
 }
@@ -218,7 +207,7 @@ type ListSpans struct {
 	Last  *ListSpans // 用于在append时提升速度
 }
 
-func (p *ListSpans) AppendSpans(s Spans) {
+func (p *ListSpans) WriteSpans(s Writer) {
 	switch t := s.(type) {
 	case *ListSpans:
 		if t == nil || t.Value == nil {
@@ -234,7 +223,7 @@ func (p *ListSpans) AppendSpans(s Spans) {
 				p.Next = t.Next
 			} else {
 				// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
-				p.AppendSpan(t.Value)
+				p.WriteSpan(t.Value)
 			}
 			return
 		}
@@ -251,11 +240,11 @@ func (p *ListSpans) AppendSpans(s Spans) {
 	}
 }
 
-func (l *ListSpans) AppendString(s string) {
-	l.AppendSpan(NewBufferSpan(s))
+func (l *ListSpans) WriteString(s string) {
+	l.WriteSpan(NewBufferSpan(s))
 }
 
-func (p *ListSpans) AppendSpan(s Span) {
+func (p *ListSpans) WriteSpan(s Span) {
 	if p.Value == nil {
 		p.Value = s
 		p.Last = p
@@ -266,7 +255,7 @@ func (p *ListSpans) AppendSpan(s Span) {
 	// 以减少链的长度
 	if ss, ok := s.(*BufferSpan); ok {
 		if ls, ok := p.Last.Value.(*BufferSpan); ok {
-			ls.AppendString(ss.Result())
+			ls.WriteString(ss.Result())
 			return
 		}
 	}
@@ -306,7 +295,7 @@ func (l *ListSpans) Length() int {
 	return i
 }
 
-func NewListSpans() Spans {
+func NewListSpans() Writer {
 	return &ListSpans{}
 }
 
@@ -346,7 +335,7 @@ func (r *Render) Directive(name string, f DirectivesFunc) {
 }
 
 // 内置组件Slot, 将渲染父级传递的slot.
-func (r *Render) Component_slot(options *Options) Spans {
+func (r *Render) Component_slot(w Writer, options *Options) {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
@@ -359,11 +348,10 @@ func (r *Render) Component_slot(options *Options) Spans {
 		injectSlotFunc = options.Slots["default"]
 	}
 
-	p := injectSlotFunc.Exec(props)
-	return p
+	injectSlotFunc.Exec(w, props)
 }
 
-func (r *Render) Component_async(options *Options) Spans {
+func (r *Render) Component_async(w Writer, options *Options) {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
@@ -371,41 +359,40 @@ func (r *Render) Component_async(options *Options) Spans {
 	s := NewChanSpan()
 	// 异步子节点计算
 	go func() {
-		ps := options.Slots.Exec("default", nil)
-		s.Done(ps.Result())
+		w := r.NewWriter()
+		options.Slots.Exec(w, "default", nil)
+		s.Done(w.Result())
 	}()
 
-	p := r.G
-	p.AppendSpan(s)
+	w.WriteSpan(s)
 
-	return p
+	return
 }
 
-func (r *Render) Component_component(options *Options) Spans {
+func (r *Render) Component_component(w Writer, options *Options) {
 	is, ok := options.Props["is"].(string)
 	if !ok {
-		return nil
+		return
 	}
 	if c, ok := r.Components[is]; ok {
-		return c(options)
+		c(w, options)
+		return
 	}
-	p := r.G
-	p.AppendString(fmt.Sprintf("<p>not register com: %s</p>", is))
-	return p
+	w.WriteString(fmt.Sprintf("<p>not register com: %s</p>", is))
 }
 
-func (r *Render) Component_template(options *Options) Spans {
+func (r *Render) Component_template(w Writer, options *Options) {
 	// exec directive
 	options.Directives.Exec(r, options)
 
-	return options.Slots.Exec("default", nil)
+	options.Slots.Exec(w, "default", nil)
 }
 
 // 动态tag
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) tag(tagName string, isRoot bool, options *Options) Spans {
+func (r *Render) tag(w Writer, tagName string, isRoot bool, options *Options) {
 	// exec directive
 	options.Directives.Exec(r, options)
 
@@ -419,12 +406,11 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) Spans {
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	var g = r.G
-	g.AppendString(fmt.Sprintf("<%s%s>", tagName, attr))
-	options.Slots.Exec("default", nil)
-	g.AppendString(fmt.Sprintf("</%s>", tagName))
+	w.WriteString(fmt.Sprintf("<%s%s>", tagName, attr))
+	options.Slots.Exec(w, "default", nil)
+	w.WriteString(fmt.Sprintf("</%s>", tagName))
 
-	return g
+	return
 }
 
 // 渲染组件需要的结构
@@ -534,30 +520,31 @@ func (p Props) CanBeAttr() Props {
 
 type Slots map[string]NamedSlotFunc
 
-func (s Slots) Exec(name string, slotProps Props) Spans {
+func (s Slots) Exec(w Writer, name string, slotProps Props) {
 	if s == nil {
-		return nil
+		return
 	}
 	if f, ok := s[name]; ok {
-		return f(slotProps)
+		f(w, slotProps)
+		return
 	}
 
-	return nil
+	return
 }
 
 // 组件的render函数
-type ComponentFunc func(options *Options) Spans
+type ComponentFunc func(w Writer, options *Options)
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
-type NamedSlotFunc func(slotProps Props) Spans
+type NamedSlotFunc func(w Writer, slotProps Props)
 
-func (f NamedSlotFunc) Exec(slotProps Props) Spans {
+func (f NamedSlotFunc) Exec(w Writer, slotProps Props) {
 	if f == nil {
-		return nil
+		return
 	}
 
-	return f(slotProps)
+	f(w, slotProps)
 }
 
 // 混合动态和静态的标签, 主要是style/class需要混合

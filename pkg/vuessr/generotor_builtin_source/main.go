@@ -8,28 +8,36 @@ import (
 )
 
 func main() {
-	sourceFile := "./generotor_builtin_source/source.go"
+	sourceFiles := []string{"./generotor_builtin_source/source.go"}
 	target := "./generator_builtin_gen.go"
 	pkg := "vuessr"
 	beginTag := []byte("// begin")
 
-	source, err := ioutil.ReadFile(sourceFile)
-	if err != nil {
-		panic(err)
-	}
+	source := ""
+	for _, sourceFile := range sourceFiles {
+		fileBs, err := ioutil.ReadFile(sourceFile)
+		if err != nil {
+			panic(err)
+		}
 
-	if !bytes.Contains(source, beginTag) {
-		panic("source file not has `// begin` tag")
-	}
+		if !bytes.Contains(fileBs, beginTag) {
+			panic("source file not has `// begin` tag")
+		}
 
-	source = bytes.Split(source, beginTag)[1]
+		// 合并多个文件中的import
+
+		code := bytes.Split(fileBs, beginTag)[1]
+		code = bytes.Trim(code, "\n")
+
+		source += fmt.Sprintf("\n\n// src: %s\n%s", sourceFile, code)
+	}
 
 	to := fmt.Sprintf(`// generate by ./generotor_builtin_source/main.go
 package %s
 
 const builtinCode = `+"`%s`", pkg, source)
 
-	err = ioutil.WriteFile(target, []byte(to), os.ModePerm)
+	err := ioutil.WriteFile(target, []byte(to), os.ModePerm)
 	if err != nil {
 		panic(err)
 	}

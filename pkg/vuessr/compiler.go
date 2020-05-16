@@ -158,10 +158,8 @@ func (o *OptionsGen) ToGoCode() string {
 
 	children := o.DefaultSlotCode
 	if children != `""` {
-		slot["default"] = fmt.Sprintf(`func(props Props) Spans{
-g := r.newSpans()
+		slot["default"] = fmt.Sprintf(`func(w Writer, props Props){
 %s
-return g
 }`, children)
 	}
 
@@ -228,9 +226,6 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 	namedSlotCode = map[string]string{}
 	if len(e.Children) != 0 {
-		str := false
-		strCode := ""
-
 		for _, v := range e.Children {
 			// 跳过生成else节点的代码, 真正生成else节点的代码在if节点中
 			if v.VElse || v.VElseIf {
@@ -241,42 +236,13 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				namedSlotCode[k] = v
 			}
 
-			var xx = ""
-			if strings.HasPrefix(childCode, "\"") {
-				if !str {
-					// 开始
-					strCode = childCode
-				} else {
-					if strCode == "" {
-						strCode += childCode
-					} else {
-						strCode += "+" + childCode
-						//strCode = strCode[:len(strCode)-1]+ childCode[1:]
-					}
-				}
-				str = true
-			} else {
-				if str {
-					// 将strCode拼接
-					// todo 判断childCode为空
-					xx = fmt.Sprintf("r.G.AppendString(%s)\n%s\n", strCode, childCode)
-				} else {
-					xx = fmt.Sprintf("%s\n", childCode)
-				}
-				str = false
+			if childCode == "" {
+				continue
 			}
-
-			defaultSlotCode += xx
-		}
-
-		if str && strCode != "" {
-			defaultSlotCode += fmt.Sprintf("r.G.AppendString(%s)\n", strCode)
+			defaultSlotCode += childCode + "\n"
 		}
 	}
-
-	//if defaultSlotCode == "" {
-	//	defaultSlotCode = `""`
-	//}
+	defaultSlotCode = strings.TrimSuffix(defaultSlotCode, "\n")
 
 	switch e.NodeType {
 	case TextNode:
@@ -286,7 +252,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		text := safeStringCode(e.Text)
 		// 处理变量
 		text = injectVal(text)
-		eleCode = fmt.Sprintf(`r.G.AppendString(%s)`, text)
+		eleCode = fmt.Sprintf(`w.WriteString(%s)`, text)
 	case DocumentNode:
 		log.Infof("DocumentNode %+v", e)
 	case ElementNode:
@@ -303,7 +269,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				Directives:      e.Directives,
 			}
 			optionsCode := options.ToGoCode()
-			eleCode = fmt.Sprintf("r.G.AppendSpans(r.Component_%s(%s))", componentName, optionsCode)
+			eleCode = fmt.Sprintf("r.Component_%s(w, %s)", componentName, optionsCode)
 		} else if e.TagName == "template" {
 			if len(e.Directives) != 0 {
 				options := OptionsGen{
@@ -312,7 +278,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				}
 				optionsCode := options.ToGoCode()
 				// template组件支持自定义指令, 可以用于设置数据等
-				eleCode = fmt.Sprintf("r.G.AppendSpans(r.Component_template(%s))", optionsCode)
+				eleCode = fmt.Sprintf("r.Component_template(w, %s)", optionsCode)
 			} else {
 				// 直接使用子级
 				eleCode = defaultSlotCode
@@ -326,7 +292,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			// - 组件的root节点: root节点会继承上层传递的(class/style/attr)
 
 			// 动态节点
-			if e.IsRoot || len(e.Directives) != 0  {
+			if e.IsRoot || len(e.Directives) != 0 {
 				options := OptionsGen{
 					Props:           e.Props,
 					Attrs:           e.Attrs,
@@ -340,7 +306,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 				optionsCode := options.ToGoCode()
 
-				eleCode = fmt.Sprintf(`r.G.AppendSpans(r.tag("%s", %v, %s))`, e.TagName, e.IsRoot, optionsCode)
+				eleCode = fmt.Sprintf(`r.tag(w, "%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAttrCode(e)
@@ -352,13 +318,17 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				}
 
 				// todo 判断children为空
-				eleCode = fmt.Sprintf("r.G.AppendString(\"<%s\"+%s+\">\")\n%s\nr.G.AppendString(\"</%s>\")", e.TagName, attrs, children, e.TagName)
+				if children != "" {
+					eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\">\")\n%s\nw.WriteString(\"</%s>\")", e.TagName, attrs, children, e.TagName)
+				} else {
+					eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\"></%s>\")", e.TagName, attrs, e.TagName)
+				}
 			}
 		}
 
 	case CommentNode:
 	case DoctypeNode:
-		eleCode = fmt.Sprintf(`"<!doctype %s>"`, e.DocType)
+		eleCode = fmt.Sprintf(`w.WriteString("<!doctype %s>")`, e.DocType)
 	default:
 		panic(fmt.Sprintf("bad nodeType, %+v", e))
 	}
@@ -425,12 +395,10 @@ if interfaceToBool(%s) { %s`, condition, srcCode)
 
 func genVSlot(e *VSlot, srcCode string) (code string, namedSlotCode map[string]string) {
 	namedSlotCode = map[string]string{
-		e.SlotName: fmt.Sprintf(`func(props Props) Spans{
+		e.SlotName: fmt.Sprintf(`func(w Writer, props Props){
 	%s := extendScope(%s, map[string]interface{}{"%s": props})
 _ = %s
-g := r.newSpans()
 %s
-return g
 }`, ScopeKey, ScopeKey, e.PropsKey, ScopeKey, srcCode),
 	}
 
@@ -451,16 +419,14 @@ func genVFor(e *VFor, srcCode string) (code string) {
 	// 将自己for, 将子代码的data字段覆盖, 实现作用域的修改
 	return fmt.Sprintf(`
   for index, item := range interface2Slice(%s) {
-    r.G.AppendSpans(func(xscope *Scope) Spans{
+    func(xscope *Scope){
         %s := extendScope(xscope, map[string]interface{}{
           "%s": index,
           "%s": item,
         })
 		_ = %s
-		g := r.newSpans()
 		%s
-        return g
-    }(%s))
+    }(%s)
   }
 `, vfArrayCode, ScopeKey, vfIndex, vfItem, ScopeKey, srcCode, ScopeKey)
 }
@@ -470,7 +436,7 @@ func genVHtml(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`r.G.AppendString(interfaceToStr(%s))`, goCode)
+	return fmt.Sprintf(`w.WriteString(interfaceToStr(%s))`, goCode)
 }
 
 func genVText(value string) (code string) {
@@ -478,7 +444,7 @@ func genVText(value string) (code string) {
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`r.G.AppendString(interfaceToStr(%s, true))`, goCode)
+	return fmt.Sprintf(`w.WriteString(interfaceToStr(%s, true))`, goCode)
 }
 
 func NewCompiler() *Compiler {
@@ -501,6 +467,7 @@ func (a *Compiler) AddComponent(name string) {
 }
 
 // 处理 Mustache {{}} 插值
+// 生成代码（字符串类型）, .e.g: "123" + interfaceToStr(scope.Get("total"),true)
 func injectVal(src string) (to string) {
 	reg := regexp.MustCompile(`{{.+?}}`)
 
@@ -514,6 +481,8 @@ func injectVal(src string) (to string) {
 		return fmt.Sprintf(`"+interfaceToStr(%s, true)+"`, goCode)
 	})
 
+	src = strings.TrimPrefix(src, `""+`)
+	src = strings.TrimSuffix(src, `+""`)
 	return src
 }
 
