@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.17"
+const Version = "0.0.18"
 
 // 0.0.9
 // fix <!doctype html>
@@ -28,3 +28,7 @@ const Version = "0.0.17"
 
 // 0.0.16
 // fix panic when nil slot called
+
+// 0.0.18
+// 1. use strings.buffer to build string
+// 2. you can custom Writer to receive result
