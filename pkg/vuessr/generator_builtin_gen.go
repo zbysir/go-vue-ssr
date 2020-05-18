@@ -4,6 +4,8 @@ package vuessr
 const builtinCode = `
 
 // src: ./generotor_builtin_source/source.go
+
+
 import (
 	"encoding/json"
 	"fmt"
@@ -1034,4 +1036,4 @@ func shouldLookInterface(data interface{}, keys ...string) (desc interface{}, ro
 
 func escape(src string) string {
 	return html.EscapeString(src)
-}`
+}`
