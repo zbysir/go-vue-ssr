@@ -6,7 +6,7 @@ import (
 )
 
 func TestParseVue(t *testing.T) {
-	e, err := ParseVue(`Z:\golang\go_path\src\github.com\zbysir\go-vue-ssr\internal\test\vue\svg.vue`)
+	e, err := ParseVue(`Z:\go_project\go-vue-ssr\internal\test\vue\page.vue`)
 	if err != nil {
 		t.Fatal(err)
 	}
