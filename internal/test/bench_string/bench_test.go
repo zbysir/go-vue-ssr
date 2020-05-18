@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"runtime"
 	"testing"
 )
 
@@ -15,16 +16,53 @@ type data struct {
 	Msg string  `json:"msg"`
 }
 
-// 10000	50,954,582 ns/op
-//          113,300,130 ns/op
-// 1000		4,584,631 ns/op
-//          9,552,647 ns/op
-func BenchmarkString(b *testing.B) {
+func TestString(t *testing.T) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
 	var ds []*data
 	for i := 0; i < 1000; i++ {
+		ds = append(ds, &data{
+			C:   nil,
+			Msg: fmt.Sprintf("%d", index),
+		})
+		index++
+	}
+
+	d := data{
+		C:   ds,
+		Msg: "1",
+	}
+	bs, _ := json.Marshal(d)
+	json.Unmarshal(bs, &ii)
+
+	r := NewRender()
+
+	h := r.Component_bench(&Options{
+		Props: map[string]interface{}{
+			"data": ii,
+		},
+	})
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	kb := 1024.0
+	//Alloc = 1849.40625	TotalAlloc = 4711.25	Sys = 10822.4921875	 NumGC = 1
+	logstr := fmt.Sprintf("\nAlloc = %v\tTotalAlloc = %v\tSys = %v\t NumGC = %v\n\n", float64(m.Alloc)/kb, float64(m.TotalAlloc)/kb, float64(m.Sys)/kb, m.NumGC)
+	t.Log(logstr)
+
+	t.Log(h)
+}
+
+// 10000	110,299,760 ns/op
+// 1000		10,105,247 ns/op
+// 100		870,556 ns/op
+func BenchmarkString(b *testing.B) {
+	var ii interface{}
+	// 生成100000个数据
+	index := 0
+	var ds []*data
+	for i := 0; i < 100; i++ {
 		ds = append(ds, &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
@@ -50,41 +88,55 @@ func BenchmarkString(b *testing.B) {
 	}
 }
 
-// 100000 8565 ns/op
-// 1000000 2116000200 ns/op
-func TestString(b *testing.T) {
+
+func TestStringNest(t *testing.T) {
 	var ii interface{}
 	// 生成100000个数据
 	index := 0
-	var ds []*data
-	for i := 0; i < 1000000; i++ {
-		ds = append(ds, &data{
-			C:   nil,
-			Msg: fmt.Sprintf("%d", index),
-		})
-		index++
+	d := &data{
+		C:   nil,
+		Msg: "1",
 	}
 
-	d := data{
-		C:   ds,
-		Msg: "1",
+	head := d
+	for i := 0; i < 1000; i++ {
+		n := &data{
+			C:   nil,
+			Msg: fmt.Sprintf("%d", index),
+		}
+		head.C = append(head.C, n)
+		head = n
+
+		index++
 	}
 	bs, _ := json.Marshal(d)
 	json.Unmarshal(bs, &ii)
 
 	r := NewRender()
 
-	_ = r.Component_bench(&Options{
+	h := r.Component_bench(&Options{
 		Props: map[string]interface{}{
 			"data": ii,
 		},
 	})
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	kb := 1024.0
+	//  Alloc = 8654.1171875	TotalAlloc = 235710.8984375	Sys = 24082.8671875	 NumGC = 51
+	logstr := fmt.Sprintf("\nAlloc = %v\tTotalAlloc = %v\tSys = %v\t NumGC = %v\n\n", float64(m.Alloc)/kb, float64(m.TotalAlloc)/kb, float64(m.Sys)/kb, m.NumGC)
+	t.Log(logstr)
+
+	t.Log(h)
 }
 
-// 公司
-// 1000		150,714,514 ns/op
-// 100  	2,181,452 ns/op
-func BenchmarkString2(b *testing.B) {
+
+// 测试递归嵌套的数据
+// 测试主机: 公司
+// 10000    15,579,999,800 ns/op
+// 1000		151,428,086 ns/op
+// 100      2,268,346 ns/op
+func BenchmarkStringNest(b *testing.B) {
 	var ii interface{}
 	// 生成10000个嵌套数据
 	index := 0
@@ -94,7 +146,7 @@ func BenchmarkString2(b *testing.B) {
 	}
 
 	head := d
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10000; i++ {
 		n := &data{
 			C:   nil,
 			Msg: fmt.Sprintf("%d", index),
@@ -133,7 +185,7 @@ func BenchmarkAppendString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var buffer string
 		for i := 0; i < 1000; i++ {
-			buffer+="a"
+			buffer += "a"
 		}
 	}
 }

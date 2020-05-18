@@ -9,50 +9,39 @@ import (
 
 type _ strings.Builder
 
-func (r *Render) Component_bench(options *Options) Spans {
+func (r *Render) Component_bench(w Writer, options *Options) {
 	scope := extendScope(r.Global.Scope, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
-	g := r.newSpans()
-	g.AppendSpans(r.tag("div", true, &Options{
+	r.tag(w, "div", true, &Options{
 		PropsClass: map[string]interface{}{"a": true},
 		Class:      []string{"b"},
-		Slots: map[string]NamedSlotFunc{"default": func(props Props) Spans {
-			g := r.newSpans()
-			g.AppendString("<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": 1}) + ">")
-			g.AppendString("\n        " + interfaceToStr(scope.Get("data", "msg"), true) + "\n    ")
-
-			g.AppendString("</span>")
+		Slots: map[string]NamedSlotFunc{"default": func(w Writer, props Props) {
+			w.WriteString("<span" + mixinClass(nil, []string{"d"}, map[string]interface{}{"c": true}) + mixinAttr(nil, nil, map[string]interface{}{"a": 1}) + ">\n        " + interfaceToStr(scope.Get("data", "msg"), true) + "\n    </span>")
 
 			for index, item := range interface2Slice(scope.Get("data", "c")) {
-				g.AppendSpans(func(xscope *Scope) Spans {
+				func(xscope *Scope) {
 					scope := extendScope(xscope, map[string]interface{}{
 						"$index": index,
 						"item":   item,
 					})
 					_ = scope
-					g := r.newSpans()
-					g.AppendString("<div>")
-					g.AppendSpans(r.Component_bench(&Options{
+					w.WriteString("<div>")
+					r.Component_bench(w, &Options{
 						Props: map[string]interface{}{"data": scope.Get("item")},
-						Slots: map[string]NamedSlotFunc{"default": func(props Props) Spans {
-							g := r.newSpans()
+						Slots: map[string]NamedSlotFunc{"default": func(w Writer, props Props) {
 
-							return g
 						}},
 						P:     options,
 						Scope: scope,
-					}))
-
-					g.AppendString("</div>")
-					return g
-				}(scope))
+					})
+					w.WriteString("</div>")
+				}(scope)
 			}
 
-			return g
 		}},
 		P:     options,
 		Scope: scope,
-	}))
-	return g
+	})
+	return
 }
