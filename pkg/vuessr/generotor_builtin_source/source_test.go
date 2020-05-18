@@ -22,39 +22,48 @@ func TestName(t *testing.T) {
 func TestListSpans(t *testing.T) {
 	var p = NewListSpans()
 
-	p.AppendString("1")
-	p.AppendString("2")
-	p.AppendString("3")
+	p.WriteString("1")
+	p.WriteString("2")
+	{
+		s := NewChanSpan()
+		go func() {
+			time.Sleep(4 * time.Second)
+			s.Done("3")
+		}()
+		p.WriteSpan(s)
+	}
+
 	{
 		s := NewChanSpan()
 		go func() {
 			time.Sleep(2 * time.Second)
 			s.Done("4")
 		}()
-		p.AppendSpan(s)
+		p.WriteSpan(s)
 	}
 
 	t.Log("3", p.Result())
 
 	p3 := NewListSpans()
-	p3.AppendString("5")
+	p3.WriteString("5")
 
 	//t.Log("5", p.Join())
 
 	p2 := NewListSpans()
-	p2.AppendSpans(p3)
+	p2.WriteSpan(p3)
 
-	p.AppendSpan(p2)
+	p.WriteSpan(p2)
 
 	t.Log("5", p.Result())
 
-	p.AppendString("6")
+	p.WriteString("6")
 
 	// for cur := p; cur != nil; cur = cur.Next {
 	// 	t.Log(cur.Note)
 	// }
 
 	want := "123456"
+	// 由于并发计算的特性, 只应该执行4s
 	r := p.Result()
 
 	if r != want {
@@ -67,39 +76,43 @@ func TestListSpans(t *testing.T) {
 func TestBufferSpans(t *testing.T) {
 	var p = NewBufferSpans()
 
-	p.AppendString("1")
-	p.AppendString("2")
-	p.AppendString("3")
+	p.WriteString("1")
+	p.WriteString("2")
+	{
+		s := NewChanSpan()
+		go func() {
+			time.Sleep(4 * time.Second)
+			s.Done("3")
+		}()
+		p.WriteSpan(s)
+	}
 	{
 		s := NewChanSpan()
 		go func() {
 			time.Sleep(2 * time.Second)
 			s.Done("4")
 		}()
-		p.AppendSpan(s)
+		p.WriteSpan(s)
 	}
 
 	t.Log("3", p.Result())
 
 	p3 := NewListSpans()
-	p3.AppendString("5")
+	p3.WriteString("5")
 
 	//t.Log("5", p.Join())
 
 	p2 := NewListSpans()
-	p2.AppendSpans(p3)
+	p2.WriteSpan(p3)
 
-	p.AppendSpan(p2)
+	p.WriteSpan(p2)
 
 	t.Log("5", p.Result())
 
-	p.AppendString("6")
-
-	// for cur := p; cur != nil; cur = cur.Next {
-	// 	t.Log(cur.Note)
-	// }
+	p.WriteString("6")
 
 	want := "123456"
+	// 会执行6s
 	r := p.Result()
 
 	if r != want {
