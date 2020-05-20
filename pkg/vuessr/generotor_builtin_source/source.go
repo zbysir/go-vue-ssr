@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/zbysir/go-vue-ssr/pkg/ssrtool/rinterface"
 	"html"
 	"sort"
 	"strconv"
@@ -42,6 +43,17 @@ func newRender(options ...RenderOption) *Render {
 		o(r)
 	}
 
+	// 注册自带指令
+	// v-show
+	r.Directive("v-show", func(binding DirectivesBinding, options *Options) {
+		if !rinterface.ToBool(binding.Value) {
+			if options.Style == nil {
+				options.Style = map[string]string{}
+			}
+			options.Style["display"] = "none"
+		}
+	})
+
 	return r
 }
 
@@ -65,8 +77,8 @@ func (p *Global) Var(name string, v interface{}) {
 	p.Scope.Set(name, v)
 }
 
-// for {{func(a)}}
-type Function func(args ...interface{}) interface{}
+// 实现在模板中调用函数语法: {{func(a)}}
+type Function func(options *Options, args ...interface{}) interface{}
 
 type DirectivesBinding struct {
 	Value interface{}
@@ -76,7 +88,7 @@ type DirectivesBinding struct {
 
 type DirectivesFunc func(b DirectivesBinding, options *Options)
 
-func emptyFunc(args ...interface{}) interface{} {
+func emptyFunc(options *Options, args ...interface{}) interface{} {
 	if len(args) != 0 {
 		return args[0]
 	}
@@ -934,7 +946,7 @@ func interfaceToFunc(s interface{}) (d Function) {
 	}
 
 	switch a := s.(type) {
-	case func(args ...interface{}) interface{}:
+	case func(options *Options, args ...interface{}) interface{}:
 		return a
 	case Function:
 		return a

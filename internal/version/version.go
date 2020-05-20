@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.18"
+const Version = "0.0.19"
 
 // 0.0.9
 // fix <!doctype html>
@@ -21,7 +21,7 @@ const Version = "0.0.18"
 
 // 0.0.14
 // support inject and provide
-// use directive: v-provide AND v-inject
+// added directive: v-provide AND v-inject
 
 // 0.0.15
 // fix empty slot
@@ -32,3 +32,6 @@ const Version = "0.0.18"
 // 0.0.18
 // 1. use strings.buffer to build string
 // 2. you can custom Writer to receive result
+
+// 0.0.19
+// added *Options arg when call function

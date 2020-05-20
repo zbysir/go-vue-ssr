@@ -115,7 +115,7 @@ func genGoCodeByNode(node ast.Node, scopeKey string) (goCode string) {
 		for i, v := range t.ArgumentList {
 			args[i] = genGoCodeByNode(v, scopeKey)
 		}
-		return fmt.Sprintf(`interfaceToFunc(%s)(%s)`, funcName, strings.Join(args, ","))
+		return fmt.Sprintf(`interfaceToFunc(%s)(options, %s)`, funcName, strings.Join(args, ","))
 	case *ast.ArrayLiteral:
 		args := make([]string, len(t.Value))
 		for i, v := range t.Value {

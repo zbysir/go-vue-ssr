@@ -273,14 +273,15 @@ func parseHtml(filename string) (es []*Element, err error) {
 	var nodes []*html.Node
 
 	// 两个情况: 一种是<template>开头的 则是标准的vue组件, 一种vue组件如html页面. 但为了简化流程, html页面也可以被当为vue组件来渲染.
-	peek := make([]byte, len("<template>"))
+	peekWant := "<template"
+	peek := make([]byte, len(peekWant))
 	_, err = file.Read(peek)
 	if err != nil {
 		return
 	}
 	_, _ = file.Seek(0, 0)
 
-	if string(peek) == "<template>" {
+	if string(peek) == peekWant {
 		root := &html.Node{
 			Type:     html.ElementNode,
 			DataAtom: atom.Div,
