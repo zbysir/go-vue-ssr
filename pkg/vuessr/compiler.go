@@ -269,20 +269,20 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				Directives:      e.Directives,
 			}
 			optionsCode := options.ToGoCode()
-			eleCode = fmt.Sprintf("r.Component_%s(w, %s)", componentName, optionsCode)
-		} else if e.TagName == "template" {
-			if len(e.Directives) != 0 {
-				options := OptionsGen{
-					DefaultSlotCode: defaultSlotCode,
-					Directives:      e.Directives,
-				}
-				optionsCode := options.ToGoCode()
-				// template组件支持自定义指令, 可以用于设置数据等
-				eleCode = fmt.Sprintf("r.Component_template(w, %s)", optionsCode)
-			} else {
-				// 直接使用子级
-				eleCode = defaultSlotCode
+			eleCode = fmt.Sprintf("xx_%s(r, w, %s)", componentName, optionsCode)
+		} else if e.TagName == "component" || e.TagName == "slot" || e.TagName == "async" || e.TagName == "template" {
+			// 自带组件
+			options := OptionsGen{
+				Class:           e.Class,
+				Attrs:           e.Attrs,
+				Props:           e.Props,
+				Style:           e.Style,
+				DefaultSlotCode: defaultSlotCode,
+				NamedSlotCode:   namedSlotCode,
+				Directives:      e.Directives,
 			}
+			optionsCode := options.ToGoCode()
+			eleCode = fmt.Sprintf("_%s(r, w, %s)", e.TagName, optionsCode)
 		} else {
 			// 基础html标签
 
@@ -306,7 +306,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 				optionsCode := options.ToGoCode()
 
-				eleCode = fmt.Sprintf(`r.tag(w, "%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
+				eleCode = fmt.Sprintf(`_tag(r, w, "%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAttrCode(e)
@@ -449,11 +449,7 @@ func genVText(value string) (code string) {
 
 func NewCompiler() *Compiler {
 	return &Compiler{
-		Components: map[string]string{
-			"component": "component",
-			"slot":      "slot",
-			"async":     "async",
-		},
+		Components: map[string]string{},
 	}
 }
 

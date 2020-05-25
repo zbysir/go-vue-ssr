@@ -1,34 +1,31 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 )
 
 // cd example/helloworld
 // exec `go-vue-ssr -src=./vue -to=./ -pkg=main -watch` before run main
 func main() {
-	r := NewRender()
-	// 此指令获取渲染过程中所有v-on指令数据, 用来添加事件.
-	r.Directive("v-on-handler", func(b DirectivesBinding, options *Options) {
-		options.Slot = map[string]NamedSlotFunc{"default": func(options *Options) string {
-			bs, _ := json.Marshal(r.VOnBinds)
-			return fmt.Sprintf("var vOnBinds = %s;", bs)
-		}}
-	})
-	htmlStr := r.Component_page(&Options{
+	c := NewRenderCreator()
+
+	r := c.NewRender()
+
+	w := r.NewWriter()
+	r.Render("page", w, &Options{
 		Props: map[string]interface{}{
 			"title":  "go-vue-ssr",
 			"slogan": "Hey vue go",
 			"info": map[string]interface{}{
-				"author": "bysir",
-				"Hey vue go":"Hey vue go",
+				"author":     "bysir",
+				"Hey vue go": "Hey vue go",
 			},
 			"logo":   "https://avatars2.githubusercontent.com/u/13434040?s=88&v=4",
 			"height": 100.1,
 		},
 	})
+
+	log.Print(w.Result())
 
 	// will print like following code(formatted):
 	// <html lang="zh">
@@ -43,5 +40,4 @@ func main() {
 	// </div>
 	// </body>
 	// </html>
-	log.Print(htmlStr)
 }

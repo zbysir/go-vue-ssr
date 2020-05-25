@@ -16,11 +16,15 @@ import (
 )
 
 type Render struct {
-	// 全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
-	// 其中可以Set签名为function的方法, 供{{func(a)}}语法使用.
-	Global *Global
+	// 用在模板的全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
+	// 其中可以存放常量 与 方法
+	Global *Scope
+
+	// 上下文, 你可以在上下文存储任何东西, 方便在多个方法或者指令之间(而不是模板中)共用变量
+	Store Store
+
 	// 注册的动态组件
-	Components map[string]ComponentFunc
+	components map[string]ComponentFunc
 	// 指令
 	directives    map[string]DirectivesFunc
 	writerCreator func() Writer
@@ -30,40 +34,76 @@ func (r Render) NewWriter() Writer {
 	return r.writerCreator()
 }
 
-func newRender(options ...RenderOption) *Render {
-	r := &Render{
-		Global:     &Global{NewScope()},
-		Components: nil,
-		directives: nil,
-		writerCreator: func() Writer {
+// 渲染注册的组件
+func (r *Render) Render(name string, w Writer, options *Options) {
+	if c, ok := r.components[name]; ok {
+		c(r, w, options)
+		return
+	}
+	w.WriteString(fmt.Sprintf("<p>not register component: %s</p>", name))
+}
+
+// 用来低成本生成一个Render
+// 注意: RenderCreator里所有变量在初始化之后都不应该被修改, 在Render中不应该有对其有副作用的操作.
+type RenderCreator struct {
+	Var *Scope // 存储静态变量与方法
+	// 注册的动态组件
+	Components map[string]ComponentFunc
+	// 指令
+	Directives map[string]DirectivesFunc
+	// 支持在指令里新生成一个Writer (用于异步渲染)
+	WriterCreator func() Writer
+}
+
+func (c *RenderCreator) NewRender() *Render {
+	return &Render{
+		Global:        NewScope(c.Var),
+		Store:         map[string]interface{}{},
+		components:    c.Components,
+		directives:    c.Directives,
+		writerCreator: c.WriterCreator,
+	}
+}
+
+// 注册指令
+func (c *RenderCreator) Directive(name string, f DirectivesFunc) {
+	c.Directives[name] = f
+}
+
+// 注册方法
+func (c *RenderCreator) Func(name string, f Function) {
+	c.Var.Set(name, f)
+}
+
+// newRenderCreator 由代码生成器调用, 用作初始化(减少代码生成)
+func newRenderCreator() *RenderCreator {
+	return &RenderCreator{
+		Var:        NewScope(nil),
+		Components: nil, // inject by generator
+		Directives: map[string]DirectivesFunc{
+			"v-show": func(r *Render, binding DirectivesBinding, options *Options) {
+				if !rinterface.ToBool(binding.Value) {
+					if options.Style == nil {
+						options.Style = map[string]string{}
+					}
+					options.Style["display"] = "none"
+				}
+			},
+		},
+		WriterCreator: func() Writer {
 			return NewBufferSpans()
 		},
 	}
-
-	for _, o := range options {
-		o(r)
-	}
-
-	// 注册自带指令
-	// v-show
-	r.Directive("v-show", func(binding DirectivesBinding, options *Options) {
-		if !rinterface.ToBool(binding.Value) {
-			if options.Style == nil {
-				options.Style = map[string]string{}
-			}
-			options.Style["display"] = "none"
-		}
-	})
-
-	return r
 }
 
-type RenderOption func(r *Render)
+type Store map[string]interface{}
 
-func WithWriter(c func() Writer) RenderOption {
-	return func(r *Render) {
-		r.writerCreator = c
-	}
+func (g Store) Get(key string) interface{} {
+	return g[key]
+}
+
+func (g Store) Set(key string, val interface{}) {
+	g[key] = val
 }
 
 type Global struct {
@@ -79,7 +119,10 @@ func (p *Global) Var(name string, v interface{}) {
 }
 
 // 实现在模板中调用函数语法: {{func(a)}}
-type Function func(options *Options, args ...interface{}) interface{}
+// options: 支持在options中获取变量(如inject的变量)
+// r: 从Render中获取全局变量(r.Global)
+// args: 从模板中传递的变量
+type Function func(r *Render, options *Options, args ...interface{}) interface{}
 
 type DirectivesBinding struct {
 	Value interface{}
@@ -87,9 +130,9 @@ type DirectivesBinding struct {
 	Name  string
 }
 
-type DirectivesFunc func(b DirectivesBinding, options *Options)
+type DirectivesFunc func(r *Render, b DirectivesBinding, options *Options)
 
-func emptyFunc(options *Options, args ...interface{}) interface{} {
+func emptyFunc(r *Render, options *Options, args ...interface{}) interface{} {
 	if len(args) != 0 {
 		return args[0]
 	}
@@ -107,6 +150,7 @@ func (s *Scope) ParentScope() *Scope {
 }
 
 // 设置暂时只支持在当前作用域设置变量
+// 避免对上层变量造成副作用
 func (s *Scope) Set(k string, v interface{}) {
 	s.values[k] = v
 }
@@ -125,10 +169,17 @@ func (s *Scope) Find(k string) map[string]interface{} {
 	return nil
 }
 
-func NewScope() *Scope {
+func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		p:      nil,
+		p:      parent,
 		values: map[string]interface{}{},
+	}
+}
+
+func extendScope(parent *Scope, data map[string]interface{}) *Scope {
+	return &Scope{
+		p:      parent,
+		values: data,
 	}
 }
 
@@ -338,17 +389,28 @@ func NewChanSpan() *ChanSpan {
 	}
 }
 
-// 注册指令
-func (r *Render) Directive(name string, f DirectivesFunc) {
-	if r.directives == nil {
-		r.directives = map[string]DirectivesFunc{}
+// 自带的组件
+func _component(r *Render, w Writer, options *Options) {
+	is, ok := options.Props["is"].(string)
+	if !ok {
+		return
 	}
+	if c, ok := r.components[is]; ok {
+		c(r, w, options)
+		return
+	}
+	w.WriteString(fmt.Sprintf("<p>not register com: %s</p>", is))
+}
 
-	r.directives[name] = f
+func _template(r *Render, w Writer, options *Options) {
+	// exec directive
+	options.Directives.Exec(r, options)
+
+	options.Slots.Exec(w, "default", nil)
 }
 
 // 内置组件Slot, 将渲染父级传递的slot.
-func (r *Render) Component_slot(w Writer, options *Options) {
+func _slot(r *Render, w Writer, options *Options) {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
@@ -364,8 +426,8 @@ func (r *Render) Component_slot(w Writer, options *Options) {
 	injectSlotFunc.Exec(w, props)
 }
 
-func (r *Render) Component_async(w Writer, options *Options) {
-	scope := extendScope(r.Global.Scope, options.Props)
+func _async(r *Render, w Writer, options *Options) {
+	scope := extendScope(r.Global, options.Props)
 	options.Directives.Exec(r, options)
 	_ = scope
 
@@ -382,30 +444,11 @@ func (r *Render) Component_async(w Writer, options *Options) {
 	return
 }
 
-func (r *Render) Component_component(w Writer, options *Options) {
-	is, ok := options.Props["is"].(string)
-	if !ok {
-		return
-	}
-	if c, ok := r.Components[is]; ok {
-		c(w, options)
-		return
-	}
-	w.WriteString(fmt.Sprintf("<p>not register com: %s</p>", is))
-}
-
-func (r *Render) Component_template(w Writer, options *Options) {
-	// exec directive
-	options.Directives.Exec(r, options)
-
-	options.Slots.Exec(w, "default", nil)
-}
-
 // 动态tag
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) tag(w Writer, tagName string, isRoot bool, options *Options) {
+func _tag(r *Render, w Writer, tagName string, isRoot bool, options *Options) {
 	// exec directive
 	options.Directives.Exec(r, options)
 
@@ -499,7 +542,7 @@ type directives []directive
 func (ds directives) Exec(r *Render, options *Options) {
 	for _, d := range ds {
 		if f, ok := r.directives[d.Name]; ok {
-			f(DirectivesBinding{
+			f(r, DirectivesBinding{
 				Value: d.Value,
 				Arg:   d.Arg,
 				Name:  d.Name,
@@ -546,7 +589,7 @@ func (s Slots) Exec(w Writer, name string, slotProps Props) {
 }
 
 // 组件的render函数
-type ComponentFunc func(w Writer, options *Options)
+type ComponentFunc func(r *Render, w Writer, options *Options)
 
 // 用来生成slot的方法
 // 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
@@ -817,13 +860,6 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 	return desc
 }
 
-func extendScope(parent *Scope, data map[string]interface{}) *Scope {
-	return &Scope{
-		p:      parent,
-		values: data,
-	}
-}
-
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
 	case int, string, float64:
@@ -947,7 +983,7 @@ func interfaceToFunc(s interface{}) (d Function) {
 	}
 
 	switch a := s.(type) {
-	case func(options *Options, args ...interface{}) interface{}:
+	case func(r *Render, options *Options, args ...interface{}) interface{}:
 		return a
 	case Function:
 		return a

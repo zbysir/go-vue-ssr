@@ -3,43 +3,107 @@
 package main
 
 
+// src: ./generotor_builtin_source/source.go
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/zbysir/go-vue-ssr/pkg/ssrtool/rinterface"
 	"html"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Render struct {
-	// 全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
-	// 其中可以Set签名为function的方法, 供{{func(a)}}语法使用.
-	Global *Global
+	// 用在模板的全局变量, 可以理解为js中的windows, 每个组件中都可以直接读取到这个对象中的值.
+	// 其中可以存放常量 与 方法
+	Global *Scope
+
+	// 上下文, 你可以在上下文存储任何东西, 方便在多个方法或者指令之间(而不是模板中)共用变量
+	Store Store
+
+	// 注册的动态组件
+	components map[string]ComponentFunc
+	// 指令
+	directives    map[string]DirectivesFunc
+	writerCreator func() Writer
+}
+
+func (r Render) NewWriter() Writer {
+	return r.writerCreator()
+}
+
+// 渲染注册的组件
+func (r *Render) Render(name string, w Writer, options *Options) {
+	if c, ok := r.components[name]; ok {
+		c(r, w, options)
+		return
+	}
+	w.WriteString(fmt.Sprintf("<p>not register component: %s</p>", name))
+}
+
+// 用来低成本生成一个Render
+// 注意: RenderCreator里所有变量在初始化之后都不应该被修改, 在Render中不应该有对其有副作用的操作.
+type RenderCreator struct {
+	Var *Scope // 存储静态变量与方法
 	// 注册的动态组件
 	Components map[string]ComponentFunc
 	// 指令
-	directives map[string]DirectivesFunc
-
-	VOnBinds []vOnBind
-	vOnDomId int
+	Directives map[string]DirectivesFunc
+	// 支持在指令里新生成一个Writer (用于异步渲染)
+	WriterCreator func() Writer
 }
 
-func newRender() *Render {
+func (c *RenderCreator) NewRender() *Render {
 	return &Render{
-		Global:     &Global{NewScope()},
-		Components: nil,
-		directives: nil,
-		VOnBinds:   nil,
-		vOnDomId:   0,
+		Global:        NewScope(c.Var),
+		Store:         map[string]interface{}{},
+		components:    c.Components,
+		directives:    c.Directives,
+		writerCreator: c.WriterCreator,
 	}
 }
 
-type vOnBind struct {
-	Func        string
-	DomSelector string
-	Args        []interface{}
-	Event       string
+// 注册指令
+func (c *RenderCreator) Directive(name string, f DirectivesFunc) {
+	c.Directives[name] = f
+}
+
+// 注册方法
+func (c *RenderCreator) Func(name string, f Function) {
+	c.Var.Set(name, f)
+}
+
+// newRenderCreator 由代码生成器调用, 用作初始化(减少代码生成)
+func newRenderCreator() *RenderCreator {
+	return &RenderCreator{
+		Var:        NewScope(nil),
+		Components: nil, // inject by generator
+		Directives: map[string]DirectivesFunc{
+			"v-show": func(r *Render, binding DirectivesBinding, options *Options) {
+				if !rinterface.ToBool(binding.Value) {
+					if options.Style == nil {
+						options.Style = map[string]string{}
+					}
+					options.Style["display"] = "none"
+				}
+			},
+		},
+		WriterCreator: func() Writer {
+			return NewBufferSpans()
+		},
+	}
+}
+
+type Store map[string]interface{}
+
+func (g Store) Get(key string) interface{} {
+	return g[key]
+}
+
+func (g Store) Set(key string, val interface{}) {
+	g[key] = val
 }
 
 type Global struct {
@@ -54,8 +118,11 @@ func (p *Global) Var(name string, v interface{}) {
 	p.Scope.Set(name, v)
 }
 
-// for {{func(a)}}
-type Function func(args ...interface{}) interface{}
+// 实现在模板中调用函数语法: {{func(a)}}
+// options: 支持在options中获取变量(如inject的变量)
+// r: 从Render中获取全局变量(r.Global)
+// args: 从模板中传递的变量
+type Function func(r *Render, options *Options, args ...interface{}) interface{}
 
 type DirectivesBinding struct {
 	Value interface{}
@@ -63,9 +130,9 @@ type DirectivesBinding struct {
 	Name  string
 }
 
-type DirectivesFunc func(b DirectivesBinding, options *Options)
+type DirectivesFunc func(r *Render, b DirectivesBinding, options *Options)
 
-func emptyFunc(args ...interface{}) interface{} {
+func emptyFunc(r *Render, options *Options, args ...interface{}) interface{} {
 	if len(args) != 0 {
 		return args[0]
 	}
@@ -83,6 +150,7 @@ func (s *Scope) ParentScope() *Scope {
 }
 
 // 设置暂时只支持在当前作用域设置变量
+// 避免对上层变量造成副作用
 func (s *Scope) Set(k string, v interface{}) {
 	s.values[k] = v
 }
@@ -101,10 +169,17 @@ func (s *Scope) Find(k string) map[string]interface{} {
 	return nil
 }
 
-func NewScope() *Scope {
+func NewScope(parent *Scope) *Scope {
 	return &Scope{
-		p:      nil,
+		p:      parent,
 		values: map[string]interface{}{},
+	}
+}
+
+func extendScope(parent *Scope, data map[string]interface{}) *Scope {
+	return &Scope{
+		p:      parent,
+		values: data,
 	}
 }
 
@@ -132,79 +207,250 @@ func (s *Scope) Get(k ...string) (v interface{}) {
 	return
 }
 
-// 注册指令
-func (r *Render) Directive(name string, f DirectivesFunc) {
-	if r.directives == nil {
-		r.directives = map[string]DirectivesFunc{}
-	}
-
-	r.directives[name] = f
+type Writer interface {
+	// 如果需要实现异步计算, 则需要将span存储, 在最后统一计算出string.
+	WriteSpan(Span)
+	// 如果是同步计算, 使用WriteString会将string结果直接存储或者拼接
+	WriteString(string)
+	Result() string
 }
 
-// 内置组件
-func (r *Render) Component_slot(options *Options) string {
+type Span interface {
+	Result() string
+}
+
+// 将多个Promise拼接为一个, 以减少内存与链的长度
+type BufferSpan struct {
+	s *strings.Builder
+}
+
+func (p *BufferSpan) Result() string {
+	return p.s.String()
+}
+
+func (p *BufferSpan) WriteString(s string) {
+	p.s.WriteString(s)
+}
+
+func NewBufferSpan(s string) Span {
+	var b strings.Builder
+	b.WriteString(s)
+	return &BufferSpan{
+		s: &b,
+	}
+}
+
+// buffer块, 同步计算
+type BufferWriter struct {
+	s *strings.Builder
+}
+
+func (p BufferWriter) WriteSpan(span Span) {
+	p.s.WriteString(span.Result())
+}
+
+func (p BufferWriter) WriteString(s string) {
+	p.s.WriteString(s)
+}
+
+func (p BufferWriter) Result() string {
+	return p.s.String()
+}
+
+func NewBufferSpans() Writer {
+	var b strings.Builder
+	return &BufferWriter{
+		s: &b,
+	}
+}
+
+// ListSpans将存储Span链表, 在最后计算结果, 可以实现并行计算.
+type ListSpans struct {
+	Value Span
+	Next  *ListSpans
+	Last  *ListSpans // 用于在append时提升速度
+}
+
+func (p *ListSpans) WriteSpans(s Writer) {
+	switch t := s.(type) {
+	case *ListSpans:
+		if t == nil || t.Value == nil {
+			return
+		}
+
+		if p.Value == nil {
+			if t.Next != nil {
+				// 跳过s的第一个元素, 将值存储到自己
+				// 注意: 如果s只有一个元素, 由于s.last存储的是s自己, p.Last也赋值为s.last的话, 如果跳过s, 就导致了p.Last存储了一个被抛弃(跳过)的元素, 当下次赋值p.Last.Next就会出错
+				p.Value = t.Value
+				p.Last = t.Last
+				p.Next = t.Next
+			} else {
+				// 如果s只有一个元素, 则抛弃s, 由p自己存储此元素
+				p.WriteSpan(t.Value)
+			}
+			return
+		}
+
+		if p.Last == nil || t.Last == nil {
+			panic("last不能为空")
+		}
+
+		// TODO 如果Last和t第一个元素可以合并, 则再合并一次
+		p.Last.Next = t
+		p.Last = t.Last
+	default:
+		panic("listSpan support Append listSpan only")
+	}
+}
+
+func (l *ListSpans) WriteString(s string) {
+	l.WriteSpan(NewBufferSpan(s))
+}
+
+func (p *ListSpans) WriteSpan(s Span) {
+	if p.Value == nil {
+		p.Value = s
+		p.Last = p
+		return
+	}
+
+	// 如果s是StringSpan并且p.Last也是StringSpan的话, 就将s的值附加到Last上
+	// 以减少链的长度
+	if ss, ok := s.(*BufferSpan); ok {
+		if ls, ok := p.Last.Value.(*BufferSpan); ok {
+			ls.WriteString(ss.Result())
+			return
+		}
+	}
+
+	last := &ListSpans{
+		Value: s,
+	}
+
+	p.Last.Next = last
+	p.Last = last
+}
+
+func (l *ListSpans) Result() string {
+	if l == nil || l.Value == nil {
+		return ""
+	}
+
+	b := strings.Builder{}
+
+	for cur := l; cur != nil; cur = cur.Next {
+		b.WriteString(cur.Value.Result())
+	}
+
+	return b.String()
+}
+
+func (l *ListSpans) Length() int {
+	if l == nil || l.Value == nil {
+		return 0
+	}
+
+	i := 0
+	for cur := l; cur != nil; cur = cur.Next {
+		i++
+	}
+
+	return i
+}
+
+func NewListSpans() Writer {
+	return &ListSpans{}
+}
+
+type ChanSpan struct {
+	c       chan string
+	getOnce sync.Once
+	setOnce sync.Once
+	r       string
+}
+
+func (p *ChanSpan) Result() string {
+	p.getOnce.Do(func() {
+		p.r = <-p.c
+	})
+	return p.r
+}
+
+func (p *ChanSpan) Done(s string) {
+	p.setOnce.Do(func() {
+		p.c <- s
+	})
+}
+
+func NewChanSpan() *ChanSpan {
+	return &ChanSpan{
+		c: make(chan string, 1),
+	}
+}
+
+// 自带的组件
+func _component(r *Render, w Writer, options *Options) {
+	is, ok := options.Props["is"].(string)
+	if !ok {
+		return
+	}
+	if c, ok := r.components[is]; ok {
+		c(r, w, options)
+		return
+	}
+	w.WriteString(fmt.Sprintf("<p>not register com: %s</p>", is))
+}
+
+func _template(r *Render, w Writer, options *Options) {
+	// exec directive
+	options.Directives.Exec(r, options)
+
+	options.Slots.Exec(w, "default", nil)
+}
+
+// 内置组件Slot, 将渲染父级传递的slot.
+func _slot(r *Render, w Writer, options *Options) {
 	name := options.Attrs["name"]
 	if name == "" {
 		name = "default"
 	}
+	props := options.Props
+	injectSlotFunc, ok := options.P.Slots[name]
 
-	injectSlotFunc := options.P.Slot[name]
-
-	// 如果没有传递slot 则使用默认的code
-	if injectSlotFunc == nil {
-		return options.Slot["default"](nil)
-	}
-
-	return injectSlotFunc(options)
-}
-
-func (r *Render) Component_component(options *Options) string {
-	is, ok := options.Props["is"].(string)
+	// 如果没有传递slot 则使用自身默认的slot
 	if !ok {
-		return ""
-	}
-	if c, ok := r.Components[is]; ok {
-		return c(options)
+		injectSlotFunc = options.Slots["default"]
 	}
 
-	return fmt.Sprintf("<p>not register com: %s</p>", is)
+	injectSlotFunc.Exec(w, props)
 }
 
-func (r *Render) Component_template(options *Options) string {
-	// exec directive
+func _async(r *Render, w Writer, options *Options) {
+	scope := extendScope(r.Global, options.Props)
 	options.Directives.Exec(r, options)
+	_ = scope
 
-	return options.Slot["default"](nil)
+	s := NewChanSpan()
+	// 异步子节点计算
+	go func() {
+		w := r.NewWriter()
+		options.Slots.Exec(w, "default", nil)
+		s.Done(w.Result())
+	}()
+
+	w.WriteSpan(s)
+
+	return
 }
 
 // 动态tag
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
-func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
+func _tag(r *Render, w Writer, tagName string, isRoot bool, options *Options) {
 	// exec directive
 	options.Directives.Exec(r, options)
-
-	// exec von
-	// 生成唯一id 并存放在dom上
-	// 存储数据
-	if len(options.VonDirectives) != 0 {
-		r.vOnDomId++
-		dom := fmt.Sprintf("%d", r.vOnDomId)
-		for _, d := range options.VonDirectives {
-			r.VOnBinds = append(r.VOnBinds, vOnBind{
-				Func:        d.Func,
-				DomSelector: dom,
-				Args:        d.Args,
-				Event:       d.Event,
-			},
-			)
-		}
-		if options.Attrs == nil {
-			options.Attrs = map[string]string{}
-		}
-		options.Attrs["data-von-"+dom] = ""
-	}
 
 	var p *Options
 	if isRoot {
@@ -216,24 +462,31 @@ func (r *Render) tag(tagName string, isRoot bool, options *Options) string {
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	eleCode := fmt.Sprintf("<%s%s>%s</%s>", tagName, attr, options.Slot["default"](nil), tagName)
-	return eleCode
+	w.WriteString(fmt.Sprintf("<%s%s>", tagName, attr))
+	options.Slots.Exec(w, "default", nil)
+	w.WriteString(fmt.Sprintf("</%s>", tagName))
+
+	return
 }
 
 // 渲染组件需要的结构
 // tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
 type Options struct {
-	Props      Props                    // 本节点的数据(不包含class和style)
-	PropsClass interface{}              // :class
-	PropsStyle map[string]interface{}   // :style
-	Attrs      map[string]string        // 本节点静态的attrs (除去class和style)
-	Class      []string                 // 本节点静态class
-	Style      map[string]string        // 本节点静态style
-	Slot       map[string]NamedSlotFunc // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
-	// 父级options
-	// - 在渲染插槽会用到. (根据name取到父级的slot)
-	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上.
-	// - 循环向上查找Provide
+	Props      Props                  // 本节点的数据(不包含class和style)
+	PropsClass interface{}            // :class
+	PropsStyle map[string]interface{} // :style
+	Attrs      map[string]string      // 本节点静态的attrs (除去class和style)
+	Class      []string               // 本节点静态class
+	Style      map[string]string      // 本节点静态style
+	Slots      Slots                  // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
+	// 有两种情况
+	// -  如果渲染的是元素（div等html元素），那么P是它所属的组件数据 ①
+	// -  如果渲染的是组件，那么P是它的父级组件数据 ②
+	// 在以下场景会用到 (后面的数字指的是属于上方的哪一种情况)
+	// - 渲染插槽. (根据name取到所属组件的slot) ①
+	// - 读取上层传递的PropsClass, 在root tag会读取上层的class等作用在自己身上. ①
+	// - Inject ①
+	// - Provide ①/②
 	P             *Options
 	Directives    directives // 多个指令
 	VonDirectives []vonDirective
@@ -289,7 +542,7 @@ type directives []directive
 func (ds directives) Exec(r *Render, options *Options) {
 	for _, d := range ds {
 		if f, ok := r.directives[d.Name]; ok {
-			f(DirectivesBinding{
+			f(r, DirectivesBinding{
 				Value: d.Value,
 				Arg:   d.Arg,
 				Name:  d.Name,
@@ -321,13 +574,34 @@ func (p Props) CanBeAttr() Props {
 	return a
 }
 
-// 组件的render函数
-type ComponentFunc func(options *Options) string
+type Slots map[string]NamedSlotFunc
 
-// 渲染slot的方法
-// slotProp是插槽prop
-// 传递的Options是上层options, 可以拿到slotProps
-type NamedSlotFunc func(options *Options) string
+func (s Slots) Exec(w Writer, name string, slotProps Props) {
+	if s == nil {
+		return
+	}
+	if f, ok := s[name]; ok {
+		f(w, slotProps)
+		return
+	}
+
+	return
+}
+
+// 组件的render函数
+type ComponentFunc func(r *Render, w Writer, options *Options)
+
+// 用来生成slot的方法
+// 由于slot具有自己的作用域, 所以只能使用闭包实现(而不是字符串).
+type NamedSlotFunc func(w Writer, slotProps Props)
+
+func (f NamedSlotFunc) Exec(w Writer, slotProps Props) {
+	if f == nil {
+		return
+	}
+
+	f(w, slotProps)
+}
 
 // 混合动态和静态的标签, 主要是style/class需要混合
 // todo) 如果style/class没有冲突, 则还可以优化
@@ -371,7 +645,7 @@ func mixinClass(options *Options, staticClass []string, classProps interface{}) 
 	}
 
 	if len(class) != 0 {
-		str = fmt.Sprintf(" class=\"%s\"", strings.Join(class, " "))
+		str = " class=\"" + strings.Join(class, " ") + "\""
 	}
 
 	return
@@ -409,7 +683,7 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[
 
 	styleCode := genStyle(style)
 	if styleCode != "" {
-		str = fmt.Sprintf(" style=\"%s\"", styleCode)
+		str = " style=\"" + styleCode + "\""
 	}
 
 	return
@@ -449,7 +723,7 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 		return ""
 	}
 
-	return fmt.Sprintf(" %s", c)
+	return " " + c
 }
 
 func getSortedKey(m map[string]string) (keys []string) {
@@ -471,31 +745,36 @@ func getSortedKey(m map[string]string) (keys []string) {
 func genStyle(style map[string]string) string {
 	sortedKeys := getSortedKey(style)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := style[k]
-		st += fmt.Sprintf("%s: %s; ", k, v)
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+		st.WriteString(k + ": " + v + ";")
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func genAttr(attr map[string]string) string {
 	sortedKeys := getSortedKey(attr)
 
-	st := ""
+	var st strings.Builder
 	for _, k := range sortedKeys {
 		v := attr[k]
+		if st.Len() != 0 {
+			st.WriteByte(' ')
+		}
+
 		if v != "" {
-			st += fmt.Sprintf("%s=\"%s\" ", k, v)
+			st.WriteString(k + "=" + "\"" + v + "\"")
 		} else {
-			st += fmt.Sprintf("%s ", k)
+			st.WriteString(k)
 		}
 	}
 
-	st = strings.Trim(st, " ")
-	return st
+	return st.String()
 }
 
 func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
@@ -543,7 +822,7 @@ func getClassFromProps(classProps interface{}) []string {
 	}
 
 	for i := range cs {
-		cs [i] = escape(cs[i])
+		cs[i] = escape(cs[i])
 	}
 
 	return cs
@@ -579,13 +858,6 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 		}
 	}
 	return desc
-}
-
-func extendScope(parent *Scope, data map[string]interface{}) *Scope {
-	return &Scope{
-		p:      parent,
-		values: data,
-	}
 }
 
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
@@ -658,6 +930,32 @@ func interfaceAdd(a, b interface{}) interface{} {
 	return an + bn
 }
 
+func interfaceLess(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) < interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) < interfaceToStr(b)
+	}
+
+	return an < bn
+}
+
+func interfaceGreater(a, b interface{}) interface{} {
+	an, ok := isNumber(a)
+	if !ok {
+		return interfaceToStr(a) > interfaceToStr(b)
+	}
+	bn, ok := isNumber(b)
+	if !ok {
+		return interfaceToStr(a) > interfaceToStr(b)
+	}
+
+	return an > bn
+}
+
 func isNumber(s interface{}) (d float64, is bool) {
 	if s == nil {
 		return 0, false
@@ -685,7 +983,7 @@ func interfaceToFunc(s interface{}) (d Function) {
 	}
 
 	switch a := s.(type) {
-	case func(args ...interface{}) interface{}:
+	case func(r *Render, options *Options, args ...interface{}) interface{}:
 		return a
 	case Function:
 		return a

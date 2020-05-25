@@ -6,7 +6,7 @@ import (
 )
 
 func TestName(t *testing.T) {
-	p := NewScope()
+	p := NewScope(nil)
 	p.Set("a", 2)
 	scope := extendScope(p, map[string]interface{}{"a": 1})
 	if scope.Get("a") != 1 {
