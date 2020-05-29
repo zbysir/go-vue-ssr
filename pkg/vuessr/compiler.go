@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
 	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast"
+	"github.com/zbysir/go-vue-ssr/pkg/vuessr/parser"
 	"regexp"
 	"sort"
 	"strings"
@@ -245,7 +246,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 	defaultSlotCode = strings.TrimSuffix(defaultSlotCode, "\n")
 
 	switch e.NodeType {
-	case TextNode:
+	case parser.TextNode:
 		// 纯字符串节点
 		// 将文本处理成go代码的字符串写法: "xxx"
 		// 注意{{表达式中的"不应该被处理, 因为这是js代码, 需要解析成为JS AST.
@@ -253,9 +254,9 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		// 处理变量
 		text = injectVal(text)
 		eleCode = fmt.Sprintf(`w.WriteString(%s)`, text)
-	case DocumentNode:
+	case parser.DocumentNode:
 		log.Infof("DocumentNode %+v", e)
-	case ElementNode:
+	case parser.ElementNode:
 		// 判断是否是自定义组件
 		componentName, exist := c.Components[e.TagName]
 		if exist {
@@ -326,8 +327,8 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			}
 		}
 
-	case CommentNode:
-	case DoctypeNode:
+	case parser.CommentNode:
+	case parser.DoctypeNode:
 		eleCode = fmt.Sprintf(`w.WriteString("<!doctype %s>")`, e.DocType)
 	default:
 		panic(fmt.Sprintf("bad nodeType, %+v", e))

@@ -1,16 +1,18 @@
 package vuessr
 
 import (
-	"fmt"
-	"github.com/zbysir/go-vue-ssr/internal/pkg/html"
-	"github.com/zbysir/go-vue-ssr/internal/pkg/html/atom"
-	"os"
+	"github.com/zbysir/go-vue-ssr/pkg/vuessr/parser"
 	"strings"
 )
 
 type VueElement struct {
-	IsRoot           bool // 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
-	NodeType         NodeType
+	// 是否是root节点
+	// 正常情况下template下的第一个节点是root节点, 如 template > div.
+	// 如果没有按照vue组件的写法来写组件(template下只能有一个元素), 则所有元素都不会被当为root节点
+	//
+	// 是否是根节点, 指的是<template>下一级节点, 这个节点会继承父级传递下来的class/style
+	IsRoot           bool
+	NodeType         parser.NodeType
 	TagName          string
 	Text             string
 	DocType          string
@@ -139,201 +141,31 @@ func (p Props) CanBeAttr() Props {
 	return a
 }
 
-type NodeType int
-
-const (
-	TextNode NodeType = iota + 1
-	DocumentNode
-	ElementNode
-	CommentNode
-	DoctypeNode
-)
-
-type Element struct {
-	NodeType NodeType
-	TagName  string // 节点类型: html基础节点如div/span/input, 也可能是自定义组件
-	Text     string // 字节点的值
-	DocType  string // 特殊的docType值
-	Attrs    []html.Attribute
-	Children []*Element
-	// 是否是root节点
-	// 正常情况下template下的第一个节点是root节点, 如 template > div.
-	// 如果没有按照vue组件的写法来写组件(template下只能有一个元素), 则所有元素都不会被当为root节点
-	Root bool
-}
-
-// 是否只有一个子节点
-// 和正常html不同的是, vue中串联的v-if/v-else只算一个节点
-func (e *Element) hasOnlyOneChildren() bool {
-	c := 0
-	for _, v := range e.Children {
-		hasIf := false
-		hasElse := false
-		hasElseIf := false
-		for _, a := range v.Attrs {
-			if a.Key == "v-if" {
-				hasIf = true
-				break
-			} else if a.Key == "v-else" {
-				hasElse = true
-				break
-			} else if a.Key == "v-else-if" {
-				hasElseIf = true
-				break
-			}
-		}
-
-		if hasIf {
-			c++
-		} else if hasElse || hasElseIf {
-		} else {
-			c++
-		}
-	}
-
-	return c == 1
-}
-
-func hNodeToElement(nodes []*html.Node) []*Element {
-	var es []*Element
-	for _, node := range nodes {
-		var e Element
-		omitNode := false
-		switch node.Type {
-		case html.TextNode:
-			// html中多个空格和\n都应该被替换为空格
-			// 注意 <script> 中的节点不应该别替换
-			// 注意下面的实现方式有bug, 没有处理在<script>中的情况
-			//text = strings.ReplaceAll(node.Data, "\n", " ")
-			//reg := regexp.MustCompile(`\s+`)
-			//text = reg.ReplaceAllString(text, " ")
-
-			// 忽略空节点
-			if strings.Trim(node.Data, "\n ") == "" {
-				omitNode = true
-				break
-			}
-			e = Element{
-				NodeType: TextNode,
-				Text:     node.Data,
-			}
-		case html.DocumentNode:
-			e = Element{
-				NodeType: DocumentNode,
-				TagName:  "document",
-			}
-		case html.ElementNode:
-			e = Element{
-				NodeType: ElementNode,
-				TagName:  node.Data,
-			}
-		case html.CommentNode:
-			omitNode = true
-		case html.DoctypeNode:
-			e = Element{
-				NodeType: DoctypeNode,
-				DocType:  node.Data,
-			}
-		default:
-			panic(uint32(node.Type))
-		}
-
-		if omitNode {
-			continue
-		}
-
-		var children []*Element
-		if node.FirstChild != nil {
-			c := node.FirstChild
-			var allC []*html.Node
-			for c != nil {
-				allC = append(allC, c)
-				c = c.NextSibling
-			}
-
-			children = hNodeToElement(allC)
-		}
-
-		e.Children = children
-		e.Attrs = node.Attr
-
-		es = append(es, &e)
-	}
-	return es
-}
-
-// parse HTML
-func parseHtml(filename string) (es []*Element, err error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return
-	}
-	defer file.Close()
-
-	var nodes []*html.Node
-
-	// 两个情况: 一种是<template>开头的 则是标准的vue组件, 一种vue组件如html页面. 但为了简化流程, html页面也可以被当为vue组件来渲染.
-	peekWant := "<template"
-	peek := make([]byte, len(peekWant))
-	_, err = file.Read(peek)
-	if err != nil {
-		return
-	}
-	_, _ = file.Seek(0, 0)
-
-	if string(peek) == peekWant {
-		root := &html.Node{
-			Type:     html.ElementNode,
-			DataAtom: atom.Div,
-			Data:     atom.Div.String(),
-		}
-		nodes, err = html.ParseFragment(file, root)
-		if err != nil {
-			return
-		}
-	} else {
-		var node *html.Node
-		node, err = html.Parse(file)
-		if err != nil {
-			return
-		}
-		if node.Type == html.DocumentNode {
-			c := node.FirstChild
-			for c != nil {
-				nodes = append(nodes, c)
-				c = c.NextSibling
-			}
-		} else {
-			err = fmt.Errorf("bad nodeType: %d, want DocumentNode", node.Type)
-			return
-		}
-	}
-
-	es = hNodeToElement(nodes)
-	return
-}
-
 func ParseVue(filename string) (v *VueElement, err error) {
-	es, err := parseHtml(filename)
+	htmlParser := parser.GoHtml{}
+
+	es, err := htmlParser.Parse(filename)
 	if err != nil {
 		return
 	}
 
 	p := VueElementParser{}
 	if len(es) == 1 {
+		v = p.Parse(es[0])
+
 		// 和vue不同的是, 在根template下的所有子节点都是root节点
-		if es[0].TagName == "template" {
-			for _, v := range es[0].Children {
-				v.Root = true
+		// 这样可以实现在组件上方添加一些指令, 而不破坏组件
+		if v.TagName == "template" {
+			for _, v := range v.Children {
+				v.IsRoot = true
 			}
 		}
-		v = p.Parse(es[0])
 	} else {
 		// 如果是多个节点, 则自动添加template包裹, 作为入口
 		// 这种情况下不会存在root节点
-		e := &Element{
+		e := &parser.Element{
 			TagName:  "template",
-			NodeType: ElementNode,
+			NodeType: parser.ElementNode,
 			Children: es,
 		}
 		v = p.Parse(e)
@@ -344,14 +176,14 @@ func ParseVue(filename string) (v *VueElement, err error) {
 type VueElementParser struct {
 }
 
-func (p VueElementParser) Parse(e *Element) *VueElement {
-	vs := p.parseList([]*Element{e})
+func (p VueElementParser) Parse(e *parser.Element) *VueElement {
+	vs := p.parseList([]*parser.Element{e})
 	return vs[0]
 }
 
 // 递归处理同级节点
 // 使用数组有一个好处就是方便的处理串联的v-if
-func (p VueElementParser) parseList(es []*Element) []*VueElement {
+func (p VueElementParser) parseList(es []*parser.Element) []*VueElement {
 	vs := make([]*VueElement, len(es))
 
 	var ifVueEle *VueElement
@@ -530,7 +362,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 		ch := p.parseList(e.Children)
 
 		v := &VueElement{
-			IsRoot:           e.Root,
+			IsRoot:           false,
 			NodeType:         e.NodeType,
 			TagName:          e.TagName,
 			Text:             e.Text,
@@ -559,7 +391,7 @@ func (p VueElementParser) parseList(es []*Element) []*VueElement {
 			ifVueEle = v
 		} else {
 			// 如果有vif环境了, 但是中间跳过了, 则需要取消掉vif环境 (v-else 必须与v-if 相邻)
-			skipNode := e.NodeType == CommentNode
+			skipNode := e.NodeType == parser.CommentNode
 			if !skipNode && vElse == nil && vElseIf == nil {
 				ifVueEle = nil
 			}
