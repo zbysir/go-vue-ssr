@@ -30,9 +30,12 @@ type VueElement struct {
 	VSlot            *VSlot
 	VElse            bool // 如果是VElse节点则不会生成代码(而是在vif里生成代码)
 	VElseIf          bool
-	VHtml            string
-	VText            string
-	VOn              []VOnDirective // v-on与普通自定义指令不同，其中表达式不会去调用方法，而是存储调用的方法和args然后生成js代码
+	// v-html / v-text
+	// 支持v-html / v-text指令覆盖子级内容的组件有: template / html基本标签
+	// component/slot和自定义组件不支持(没有必要)v-html/v-text覆盖子级
+	VHtml string
+	VText string
+	VOn   []VOnDirective // v-on与普通自定义指令不同，其中表达式不会去调用方法，而是存储调用的方法和args然后生成js代码
 }
 
 type Directive struct {

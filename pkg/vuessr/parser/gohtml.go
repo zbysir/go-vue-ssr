@@ -10,7 +10,7 @@ import (
 
 // GoHtml 使用go原生html库解析html字符串
 // 目前有的问题:
-// - 不支持不规则的html, 如在<select>里嵌套<slot>, 如在<head>里嵌套<div>/<template>
+// - 不支持不规则的html, 已知的有<select>里嵌套<slot>, 在<head>里嵌套<div>, 其实还有很多未知的问题, 为了避免引起未知bug, vue模板不需要做html的规则检查.
 // 还在寻求另一个解决方案.
 type GoHtml struct {
 }

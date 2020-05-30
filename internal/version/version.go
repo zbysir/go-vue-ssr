@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.20"
+const Version = "0.0.21"
 
 // 0.0.9
 // fix <!doctype html>
@@ -21,7 +21,6 @@ const Version = "0.0.20"
 
 // 0.0.14
 // support inject and provide
-// added directive: v-provide AND v-inject
 
 // 0.0.15
 // fix empty slot
@@ -38,3 +37,6 @@ const Version = "0.0.20"
 
 // 0.0.20
 // Reduce costs of NewRender()
+
+// 0.0.21
+// support v-html directive on <template>

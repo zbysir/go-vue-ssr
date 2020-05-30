@@ -271,7 +271,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			}
 			optionsCode := options.ToGoCode()
 			eleCode = fmt.Sprintf("xx_%s(r, w, %s)", componentName, optionsCode)
-		} else if e.TagName == "component" || e.TagName == "slot" || e.TagName == "async" || e.TagName == "template" {
+		} else if e.TagName == "component" || e.TagName == "slot" || e.TagName == "async" {
 			// 自带组件
 			options := OptionsGen{
 				Class:           e.Class,
@@ -284,6 +284,32 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 			}
 			optionsCode := options.ToGoCode()
 			eleCode = fmt.Sprintf("_%s(r, w, %s)", e.TagName, optionsCode)
+		} else if e.TagName == "template" {
+			// template和其他自带组件不一样: 它可以包含额外多个功能: 使用v-html/v-text
+			children := defaultSlotCode
+			if e.VHtml != "" {
+				children = genVHtml(e.VHtml)
+			} else if e.VText != "" {
+				children = genVText(e.VText)
+			}
+
+			// 如果没有指令, 则直接输出子级
+			if len(e.Directives) == 0 {
+				eleCode = children
+			} else {
+				options := OptionsGen{
+					Class:           nil, // dom相关都不需要处理
+					Attrs:           nil, // dom相关都不需要处理
+					Props:           e.Props,
+					Style:           nil, // dom相关都不需要处理
+					DefaultSlotCode: children,
+					NamedSlotCode:   namedSlotCode,
+					Directives:      e.Directives,
+				}
+				optionsCode := options.ToGoCode()
+				eleCode = fmt.Sprintf("_%s(r, w, %s)", e.TagName, optionsCode)
+			}
+
 		} else {
 			// 基础html标签
 
@@ -294,13 +320,20 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 
 			// 动态节点
 			if e.IsRoot || len(e.Directives) != 0 {
+				children := defaultSlotCode
+				if e.VHtml != "" {
+					children = genVHtml(e.VHtml)
+				} else if e.VText != "" {
+					children = genVText(e.VText)
+				}
+
 				options := OptionsGen{
 					Props:           e.Props,
 					Attrs:           e.Attrs,
 					Class:           e.Class,
 					Style:           e.Style,
 					Slot:            nil,
-					DefaultSlotCode: defaultSlotCode,
+					DefaultSlotCode: children,
 					NamedSlotCode:   namedSlotCode,
 					Directives:      e.Directives,
 				}
@@ -318,7 +351,6 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 					children = genVText(e.VText)
 				}
 
-				// todo 判断children为空
 				if children != "" {
 					eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\">\")\n%s\nw.WriteString(\"</%s>\")", e.TagName, attrs, children, e.TagName)
 				} else {
@@ -334,12 +366,18 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		panic(fmt.Sprintf("bad nodeType, %+v", e))
 	}
 
-	// 优先级 vSlot > vIf > vFor, 所以先处理VFor
+	// 优先级 vSlot > vFor > vIf, 所以先处理VIf(后处理的可覆盖前处理的)
 
+	if e.VIf != nil {
+		var namedSlotCodeElseIf map[string]string
+		eleCode, namedSlotCodeElseIf = genVIf(e.VIf, eleCode, c)
+		for i, v := range namedSlotCodeElseIf {
+			namedSlotCode[i] = v
+		}
+	}
 	if e.VFor != nil {
 		eleCode = genVFor(e.VFor, eleCode)
 	}
-
 	if e.VSlot != nil {
 		var namedSlotCode2 map[string]string
 		eleCode, namedSlotCode2 = genVSlot(e.VSlot, eleCode)
@@ -348,17 +386,10 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 		}
 	}
 
-	if e.VIf != nil {
-		var namedSlotCode2 map[string]string
-		eleCode, namedSlotCode2 = genVIf(e.VIf, eleCode, c)
-		for i, v := range namedSlotCode2 {
-			namedSlotCode[i] = v
-		}
-	}
-
 	return eleCode, namedSlotCode
 }
 
+// vIf处理if节点与elseif/else节点, 会返回elseif节点的namedSlotCode
 func genVIf(e *VIf, srcCode string, c *Compiler) (code string, namedSlotCode map[string]string) {
 	// 自己的conditions
 	condition, err := ast.Js2Go(e.Condition, ScopeKey)
