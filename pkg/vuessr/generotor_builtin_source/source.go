@@ -780,6 +780,8 @@ func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
 	st := map[string]string{}
 	for k, v := range styleProps {
 		switch v := v.(type) {
+		case nil:
+			break
 		case string:
 			st[k] = escape(v)
 		default:
