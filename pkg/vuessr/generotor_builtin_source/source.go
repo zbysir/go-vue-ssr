@@ -863,6 +863,8 @@ func extendMap(src map[string]interface{}, ext ...map[string]interface{}) (desc 
 
 func interfaceToStr(s interface{}, escaped ...bool) (d string) {
 	switch a := s.(type) {
+	case nil:
+		return ""
 	case int, string, float64:
 		d = fmt.Sprintf("%v", a)
 	default:
