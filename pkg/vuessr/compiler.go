@@ -209,6 +209,25 @@ const (
 	ScopeKey = "scope" // 变量作用域的key, 模拟js作用域.
 )
 
+// voidElements 没有子元素, 会渲染成 <br/> 这样的格式
+var voidElements = map[string]bool{
+	"area":   true,
+	"base":   true,
+	"br":     true,
+	"col":    true,
+	"embed":  true,
+	"hr":     true,
+	"img":    true,
+	"input":  true,
+	"keygen": true,
+	"link":   true,
+	"meta":   true,
+	"param":  true,
+	"source": true,
+	"track":  true,
+	"wbr":    true,
+}
+
 // 组件渲染,
 // 如果该组件被components注册, 则使用Element渲染.
 //
@@ -354,7 +373,11 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				if children != "" {
 					eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\">\")\n%s\nw.WriteString(\"</%s>\")", e.TagName, attrs, children, e.TagName)
 				} else {
-					eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\"></%s>\")", e.TagName, attrs, e.TagName)
+					if voidElements[e.TagName] {
+						eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\"/>\")", e.TagName, attrs)
+					} else {
+						eleCode = fmt.Sprintf("w.WriteString(\"<%s\"+%s+\"></%s>\")", e.TagName, attrs, e.TagName)
+					}
 				}
 			}
 		}

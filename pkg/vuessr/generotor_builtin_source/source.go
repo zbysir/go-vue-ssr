@@ -443,6 +443,25 @@ func _async(r *Render, w Writer, options *Options) {
 	return
 }
 
+// voidElements 没有子元素, 会渲染成 <br/> 这样的格式
+var voidElements = map[string]bool{
+	"area":   true,
+	"base":   true,
+	"br":     true,
+	"col":    true,
+	"embed":  true,
+	"hr":     true,
+	"img":    true,
+	"input":  true,
+	"keygen": true,
+	"link":   true,
+	"meta":   true,
+	"param":  true,
+	"source": true,
+	"track":  true,
+	"wbr":    true,
+}
+
 // 动态tag
 // 何为动态tag:
 // - 每个组件的root层tag(attr受到上层传递的props影响)
@@ -461,9 +480,13 @@ func _tag(r *Render, w Writer, tagName string, isRoot bool, options *Options) {
 		mixinStyle(p, options.Style, options.PropsStyle) +
 		mixinAttr(p, options.Attrs, options.Props)
 
-	w.WriteString(fmt.Sprintf("<%s%s>", tagName, attr))
-	options.Slots.Exec(w, "default", nil)
-	w.WriteString(fmt.Sprintf("</%s>", tagName))
+	if voidElements[tagName] {
+		w.WriteString(fmt.Sprintf("<%s%s/>", tagName, attr))
+	} else {
+		w.WriteString(fmt.Sprintf("<%s%s>", tagName, attr))
+		options.Slots.Exec(w, "default", nil)
+		w.WriteString(fmt.Sprintf("</%s>", tagName))
+	}
 
 	return
 }

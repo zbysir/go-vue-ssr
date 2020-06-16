@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.21"
+const Version = "0.0.22"
 
 // 0.0.9
 // fix <!doctype html>
@@ -40,3 +40,6 @@ const Version = "0.0.21"
 
 // 0.0.21
 // support v-html directive on <template>
+
+// 0.0.22
+// render voidElements
