@@ -2,17 +2,17 @@ package vuessr
 
 import (
 	"fmt"
+	"github.com/zbysir/go-vue-ssr/internal/pkg/log"
 	"github.com/zbysir/go-vue-ssr/pkg/vuessr/ast"
 	"strings"
 )
 
-func getPropsClass(props Props) string {
-	item := props.Get("class")
-	if item == "" {
+func genPropsClassCode(classJs string) string {
+	if classJs == "" {
 		return "nil"
 	}
 
-	code, err := ast.Js2Go(item, ScopeKey)
+	code, err := ast.Js2Go(classJs, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -20,13 +20,40 @@ func getPropsClass(props Props) string {
 	return code
 }
 
-func getPropsStyle(props Props) string {
-	item := props.Get("style")
-	if item == "" {
+func genProps(props Props) string {
+	if len(props) == 0 {
+		return "Props{}"
+	}
+
+	// orderKeyCode
+	orderKeyCode := `[]string{`
+	for _, p := range props {
+		orderKeyCode += fmt.Sprintf(`"%s",`, p.Key)
+	}
+	orderKeyCode += "}"
+
+	// dataCode
+	dataCode := "map[string]interface{}{"
+	for _, p := range props {
+		k := p.Key
+		v := p.Val
+		valueCode, err := ast.Js2Go(v, ScopeKey)
+		if err != nil {
+			log.Panicf("%v, %s", err, v)
+		}
+		dataCode += fmt.Sprintf(`"%s": %s,`, k, valueCode)
+	}
+	dataCode += "}"
+
+	return fmt.Sprintf(`Props{orderKey: %s, data: %s}`, orderKeyCode, dataCode)
+}
+
+func genPropsStyleCode(styleJs string) string {
+	if styleJs == "" {
 		return "nil"
 	}
 
-	code, err := ast.Js2Go(item, ScopeKey)
+	code, err := ast.Js2Go(styleJs, ScopeKey)
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +62,7 @@ func getPropsStyle(props Props) string {
 }
 
 // 生成!动态节点的!attr, 包括class style和其他
-func genAttrCode(e *VueElement) string {
+func genAllAttrCode(e *VueElement) string {
 	var a = ""
 
 	// go代码
@@ -44,15 +71,17 @@ func genAttrCode(e *VueElement) string {
 	var attrCode = ""
 
 	// 查找props中的class 与 style, 将处理为动态class
-	classProps := e.Props.Get("class")
-	styleProps := e.Props.Get("style")
+	classProps, _ := e.Props.Get("class")
+	styleProps, _ := e.Props.Get("style")
 
 	// 额外处理class/style
 
 	// class
 	{
+		// 静态Class GoCode
 		staticClassCode := sliceStringToGoCode(e.Class)
 
+		// 动态class GoCode
 		classPropsCode := "nil"
 		if classProps != "" {
 			var err error
@@ -61,6 +90,7 @@ func genAttrCode(e *VueElement) string {
 				panic(err)
 			}
 		}
+
 		if classPropsCode != "nil" {
 			classCode = fmt.Sprintf(`mixinClass(nil, %s, %s)`, staticClassCode, classPropsCode)
 		} else if staticClassCode == "nil" {
@@ -92,16 +122,20 @@ func genAttrCode(e *VueElement) string {
 	}
 	// attr
 	{
-		staticAttrCode := mapStringToGoCode(e.Attrs)
-		attrPropsCode := mapJsCodeToCode(e.Props.Omit("class", "style"))
+		// 静态attr GoCode
+		staticAttrCode := genAttrsCode(e.Attrs)
+		// 动态attr GoCode
+		attrProps := e.Props.Omit("class", "style")
 
 		// todo 可以预先判断static与Props是否有key冲突, 如果key不冲突, 则可以直接把static生成为go代码
-		if attrPropsCode != "nil" {
+		if len(attrProps) != 0 {
+			attrPropsCode := genProps(attrProps)
 			attrCode = fmt.Sprintf(`mixinAttr(nil, %s, %s)`, staticAttrCode, attrPropsCode)
 		} else if staticAttrCode == "nil" {
 			attrCode = ``
 		} else {
-			attrCode = safeStringCode(fmt.Sprintf(` %s`, genAttr(e.Attrs, e.AttrsKeys)))
+			// 静态attrs 字符串
+			attrCode = safeStringCode(fmt.Sprintf(` %s`, genAttr(e.Attrs)))
 		}
 	}
 
@@ -132,6 +166,19 @@ func genAttrCode(e *VueElement) string {
 	return a
 }
 
+func genAttrsCode(a []Attribute) string {
+	if len(a) == 0 {
+		return "nil"
+	}
+	st := "[]Attribute{\n"
+	for _, v := range a {
+		st += fmt.Sprintf(`{Key: %s, Val: %s},`, safeStringCode(v.Key), safeStringCode(v.Val))
+	}
+	st += "\n}"
+	return st
+}
+
+// 生成静态style
 func genStyle(style map[string]string, styleKeys []string) string {
 	st := ""
 	// 为了每次编译的代码都一样, style的顺序也应一样
@@ -142,18 +189,22 @@ func genStyle(style map[string]string, styleKeys []string) string {
 	return st
 }
 
-func genAttr(attr map[string]string, keys []string) string {
-	c := ""
-	// 为了每次编译的代码都一样, style的顺序也应一样
-	for _, k := range keys {
-		v := attr[k]
+// 生成静态attr
+func genAttr(attr []Attribute) string {
+	c := strings.Builder{}
+	for _, a := range attr {
+		v := a.Val
+		k := a.Key
+
+		if c.Len() != 0 {
+			c.WriteString(" ")
+		}
 		if v != "" {
-			c += fmt.Sprintf(`%s="%s"`, k, v)
+			c.WriteString(fmt.Sprintf(`%s="%s"`, k, v))
 		} else {
-			c += fmt.Sprintf(`%s`, k)
+			c.WriteString(fmt.Sprintf(`%s`, k))
 		}
 	}
-	//c = safeStringCode(c)
-	return c
 
+	return c.String()
 }

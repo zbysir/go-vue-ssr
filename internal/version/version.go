@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.22"
+const Version = "0.0.23"
 
 // 0.0.9
 // fix <!doctype html>
@@ -43,3 +43,6 @@ const Version = "0.0.22"
 
 // 0.0.22
 // render voidElements
+
+// 0.0.23
+// ordered props

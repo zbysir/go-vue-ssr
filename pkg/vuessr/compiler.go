@@ -17,10 +17,34 @@ type Compiler struct {
 	Components map[string]string
 }
 
+type Prop struct {
+	Key, Val string
+}
+
+type Props []Prop
+
+func (p Props) Get(key string) (val string, exist bool) {
+	for _, v := range p {
+		if v.Key == key {
+			return v.Val, true
+		}
+	}
+	return
+}
+
+func (p *Props) Del(key string) {
+	for index, k := range *p {
+		if k.Key == key {
+			*p = append((*p)[:index], (*p)[index+1:]...)
+			break
+		}
+	}
+}
+
 // 用来生成Option代码所需要的数据
 type OptionsGen struct {
-	Props           map[string]string // 上级传递的 数据(包含了class和style)
-	Attrs           map[string]string // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Props           Props             // 上级传递的 数据(包含了class和style)
+	Attrs           []Attribute // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
 	Class           []string          // 静态class
 	Style           map[string]string // 静态style
 	Slot            map[string]string // 插槽节点
@@ -126,26 +150,28 @@ func (o *OptionsGen) ToGoCode() string {
 
 	if len(o.Props) != 0 {
 		// class
-		cCode := getPropsClass(o.Props)
-		if cCode != "nil" {
-			delete(o.Props, "class")
+		classJs, ok := o.Props.Get("class")
+		if ok {
+			o.Props.Del("class")
+			cCode := genPropsClassCode(classJs)
 			c += fmt.Sprintf("PropsClass: %s, \n", cCode)
 		}
+		styleJs, ok := o.Props.Get("style")
 		// style
-		cStyle := getPropsStyle(o.Props)
-		if cStyle != "nil" {
-			delete(o.Props, "style")
+		if ok {
+			o.Props.Del("style")
+			cStyle := genPropsStyleCode(styleJs)
 			c += fmt.Sprintf("PropsStyle: %s, \n", cStyle)
 		}
 
 		// 除了class/style的props
 		if len(o.Props) != 0 {
-			c += fmt.Sprintf("Props: %s, \n", mapJsCodeToCode(o.Props))
+			c += fmt.Sprintf("Props: %s, \n", genProps(o.Props))
 		}
 	}
 
 	if len(o.Attrs) != 0 {
-		c += fmt.Sprintf("Attrs: %s,\n", mapStringToGoCode(o.Attrs))
+		c += fmt.Sprintf("Attrs: %s,\n", genAttrsCode(o.Attrs))
 	}
 	if len(o.Class) != 0 {
 		c += fmt.Sprintf("Class: %s,\n", sliceToGoCode(o.Class))
@@ -362,7 +388,7 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 				eleCode = fmt.Sprintf(`_tag(r, w, "%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
-				attrs := genAttrCode(e)
+				attrs := genAllAttrCode(e)
 				children := defaultSlotCode
 				if e.VHtml != "" {
 					children = genVHtml(e.VHtml)

@@ -16,8 +16,7 @@ type VueElement struct {
 	TagName          string
 	Text             string
 	DocType          string
-	Attrs            map[string]string // 除去指令/props/style/class之外的属性
-	AttrsKeys        []string          // 属性的key, 用来保证顺序
+	Attrs            []Attribute       // 除去指令/props/style/class之外的属性
 	Directives       []Directive       // 自定义指令, 运行时
 	ElseIfConditions []ElseIf          // 将与if指令匹配的elseif/else关联在一起
 	Class            []string          // 静态class
@@ -36,6 +35,10 @@ type VueElement struct {
 	VHtml string
 	VText string
 	VOn   []VOnDirective // v-on与普通自定义指令不同，其中表达式不会去调用方法，而是存储调用的方法和args然后生成js代码
+}
+
+type Attribute struct {
+	Key, Val string
 }
 
 type Directive struct {
@@ -81,15 +84,6 @@ type VSlot struct {
 	PropsKey string
 }
 
-type Props map[string]string
-
-func (p Props) Get(key string) string {
-	if p == nil {
-		return ""
-	}
-	return p[key]
-}
-
 func (p Props) Omit(key ...string) Props {
 	kMap := map[string]struct{}{}
 	for _, k := range key {
@@ -97,49 +91,11 @@ func (p Props) Omit(key ...string) Props {
 	}
 
 	a := Props{}
-	for k, v := range p {
-		if _, ok := kMap[k]; ok {
+	for _, item := range p {
+		if _, ok := kMap[item.Key]; ok {
 			continue
 		}
-		a[k] = v
-	}
-	return a
-}
-
-func (p Props) Only(key ...string) Props {
-	kMap := map[string]struct{}{}
-	for _, k := range key {
-		kMap[k] = struct{}{}
-	}
-
-	a := Props{}
-	for k, v := range p {
-		if _, ok := kMap[k]; !ok {
-			continue
-		}
-
-		a[k] = v
-	}
-	return a
-}
-
-func (p Props) CanBeAttr() Props {
-	html := map[string]struct{}{
-		"id":  {},
-		"src": {},
-	}
-
-	a := Props{}
-	for k, v := range p {
-		if _, ok := html[k]; !ok {
-			continue
-		}
-
-		if !strings.HasPrefix(k, "data-") {
-			continue
-		}
-
-		a[k] = v
+		a = append(a, item)
 	}
 	return a
 }
@@ -191,14 +147,13 @@ func (p VueElementParser) parseList(es []*parser.Element) []*VueElement {
 
 	var ifVueEle *VueElement
 	for i, e := range es {
-		props := map[string]string{}
+		var props []Prop
 		var ds []Directive
 		var vOn []VOnDirective
 		var class []string
 		style := map[string]string{}
 		var styleKeys []string
-		attrs := map[string]string{}
-		var attrsKeys []string
+		var attrs []Attribute
 		var vIf *VIf
 		var vFor *VFor
 		var vSlot *VSlot
@@ -222,7 +177,10 @@ func (p VueElementParser) parseList(es []*parser.Element) []*VueElement {
 
 			if nameSpace == "v-bind" || nameSpace == "" {
 				// v-bind & shorthands :
-				props[key] = attr.Val
+				props = append(props, Prop{
+					Key: key,
+					Val: attr.Val,
+				})
 			} else if strings.HasPrefix(oriKey, "@") || nameSpace == "v-on" {
 				// v-on & shorthands @
 				// v-on和普通的指令不同, 它的值是一个方法, 并且是js方法, 所以在模板中无法计算或者存储该值, 只能换一个方法: 存储为对象{event, funcName}, 让js代码再去调用.
@@ -357,8 +315,10 @@ func (p VueElementParser) parseList(es []*parser.Element) []*VueElement {
 				if attr.Namespace != "" {
 					key = attr.Namespace + ":" + attr.Key
 				}
-				attrs[key] = attr.Val
-				attrsKeys = append(attrsKeys, key)
+				attrs = append(attrs, Attribute{
+					Key: key,
+					Val: attr.Val,
+				})
 			}
 		}
 
@@ -371,7 +331,6 @@ func (p VueElementParser) parseList(es []*parser.Element) []*VueElement {
 			Text:             e.Text,
 			DocType:          e.DocType,
 			Attrs:            attrs,
-			AttrsKeys:        attrsKeys,
 			Directives:       ds,
 			ElseIfConditions: []ElseIf{},
 			Class:            class,

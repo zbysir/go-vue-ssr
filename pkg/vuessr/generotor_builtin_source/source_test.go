@@ -121,3 +121,12 @@ func TestBufferSpans(t *testing.T) {
 	t.Log("ok")
 
 }
+
+func Test_getAttrFromProps(t *testing.T) {
+	as := getAttrFromProps(NewProps(map[string]interface{}{
+		"autoplay":  false,
+		"id":        1,
+		"autofocus": true,
+	}))
+	t.Logf("%+v", as)
+}

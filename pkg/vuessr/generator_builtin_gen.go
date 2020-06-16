@@ -391,10 +391,15 @@ func NewChanSpan() *ChanSpan {
 
 // 自带的组件
 func _component(r *Render, w Writer, options *Options) {
-	is, ok := options.Props["is"].(string)
+	val, ok := options.Props.Get("is")
 	if !ok {
 		return
 	}
+	is, ok := val.(string)
+	if !ok {
+		return
+	}
+
 	if c, ok := r.components[is]; ok {
 		c(r, w, options)
 		return
@@ -406,12 +411,13 @@ func _template(r *Render, w Writer, options *Options) {
 	// exec directive
 	options.Directives.Exec(r, options)
 
-	options.Slots.Exec(w, "default", nil)
+	options.Slots.Exec(w, "default", Props{})
 }
 
 // 内置组件Slot, 将渲染父级传递的slot.
 func _slot(r *Render, w Writer, options *Options) {
-	name := options.Attrs["name"]
+	attr, _ := options.Attrs.Get("name")
+	name := attr.Val
 	if name == "" {
 		name = "default"
 	}
@@ -427,7 +433,7 @@ func _slot(r *Render, w Writer, options *Options) {
 }
 
 func _async(r *Render, w Writer, options *Options) {
-	scope := extendScope(r.Global, options.Props)
+	scope := extendScope(r.Global, options.Props.Map())
 	options.Directives.Exec(r, options)
 	_ = scope
 
@@ -435,7 +441,7 @@ func _async(r *Render, w Writer, options *Options) {
 	// 异步子节点计算
 	go func() {
 		w := r.NewWriter()
-		options.Slots.Exec(w, "default", nil)
+		options.Slots.Exec(w, "default", Props{})
 		s.Done(w.Result())
 	}()
 
@@ -485,20 +491,40 @@ func _tag(r *Render, w Writer, tagName string, isRoot bool, options *Options) {
 		w.WriteString(fmt.Sprintf("<%s%s/>", tagName, attr))
 	} else {
 		w.WriteString(fmt.Sprintf("<%s%s>", tagName, attr))
-		options.Slots.Exec(w, "default", nil)
+		options.Slots.Exec(w, "default", Props{})
 		w.WriteString(fmt.Sprintf("</%s>", tagName))
 	}
 
 	return
 }
 
+type Attribute struct {
+	Key, Val string
+}
+
+type Attributes []Attribute
+
+func (p Attributes) Get(key string) (Attribute, bool) {
+	for _, i := range p {
+		if i.Key == key {
+			return i, true
+		}
+	}
+
+	return Attribute{}, false
+}
+
+func (p *Attributes) Append(key string, val string) {
+	*p = append(*p, Attribute{Key: key, Val: val})
+}
+
 // 渲染组件需要的结构
-// tips: 此结构应该尽量的简单, 方便渲染才能性能更好.
+// tip: 此结构应该尽量的简单, 减少渲染时处理才能性能更好.
 type Options struct {
 	Props      Props                  // 本节点的数据(不包含class和style)
 	PropsClass interface{}            // :class
 	PropsStyle map[string]interface{} // :style
-	Attrs      map[string]string      // 本节点静态的attrs (除去class和style)
+	Attrs      Attributes             // 本节点静态的attrs (除去class和style)
 	Class      []string               // 本节点静态class
 	Style      map[string]string      // 本节点静态style
 	Slots      Slots                  // 当前组件所有的插槽代码(v-slot指令和默认的子节点), 支持多个不同名字的插槽, 如果没有名字则是"default"
@@ -574,8 +600,58 @@ func (ds directives) Exec(r *Render, options *Options) {
 	}
 }
 
-type Props map[string]interface{}
+type Props struct {
+	orderKey []string               // 在生成attr时会用到顺序
+	data     map[string]interface{} // 存储map有利于快速存取
+}
 
+func (p *Props) Del(key string, value interface{}) {
+	for index, k := range p.orderKey {
+		if k == key {
+			p.orderKey = append(p.orderKey[:index], p.orderKey[index+1:]...)
+			break
+		}
+
+	}
+	delete(p.data, key)
+}
+
+func (p *Props) Set(key string, value interface{}) {
+	if p.data == nil {
+		p.data = map[string]interface{}{}
+	}
+
+	if _, ok := p.data[key]; ok {
+		p.data[key] = value
+	} else {
+		p.orderKey = append(p.orderKey, key)
+		p.data[key] = value
+	}
+}
+
+func (p Props) Get(key string) (val interface{}, exist bool) {
+	if p.data == nil {
+		return
+	}
+
+	val, exist = p.data[key]
+	return
+}
+
+// Props可以转换为map, 方便在作用域中使用
+func (p Props) Map() map[string]interface{} {
+	return p.data
+}
+
+func NewProps(data map[string]interface{}) Props {
+	return Props{
+		orderKey: getMapInterfaceKey(data),
+		data:     data,
+	}
+}
+
+// 能够被当成attr渲染出来的Props
+// 只在自定义组件的rootTag上使用
 func (p Props) CanBeAttr() Props {
 	htmlAttr := map[string]struct{}{
 		"id":  {},
@@ -583,14 +659,15 @@ func (p Props) CanBeAttr() Props {
 	}
 
 	a := Props{}
-	for k, v := range p {
+	for _, k := range p.orderKey {
+		v := p.data[k]
 		if _, ok := htmlAttr[k]; ok {
-			a[k] = v
+			a.Set(k, v)
 			continue
 		}
 
 		if strings.HasPrefix(k, "data-") {
-			a[k] = v
+			a.Set(k, v)
 			continue
 		}
 	}
@@ -713,31 +790,22 @@ func mixinStyle(options *Options, staticStyle map[string]string, styleProps map[
 }
 
 // 生成除了style和class的attr
-func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[string]interface{}) string {
-	attrs := map[string]string{}
+func mixinAttr(options *Options, staticAttr []Attribute, propsAttr Props) string {
+	var attrs []Attribute
 
 	// 静态
-	for k, v := range staticAttr {
-		attrs[k] = v
-	}
+	attrs = append(attrs, staticAttr...)
 
-	// 当前props
-	ps := getStyleFromProps(propsAttr)
-	for k, v := range ps {
-		attrs[k] = v
-	}
+	// 当前props中的attr
+	attrs = append(attrs, getAttrFromProps(propsAttr)...)
 
 	if options != nil {
-		// 上层传递的props
-		if options.Props != nil {
-			for k, v := range getStyleFromProps(options.Props.CanBeAttr()) {
-				attrs[k] = v
-			}
-		}
-
 		// 上层传递的静态style
-		for k, v := range options.Attrs {
-			attrs[k] = v
+		attrs = append(attrs, options.Attrs...)
+
+		// 上层传递的props
+		if options.Props.data != nil {
+			attrs = append(attrs, getAttrFromProps(options.Props.CanBeAttr())...)
 		}
 	}
 
@@ -750,6 +818,22 @@ func mixinAttr(options *Options, staticAttr map[string]string, propsAttr map[str
 }
 
 func getSortedKey(m map[string]string) (keys []string) {
+	keys = make([]string, len(m))
+	index := 0
+	for k := range m {
+		keys[index] = k
+		index++
+	}
+	if len(m) < 2 {
+		return keys
+	}
+
+	sort.Strings(keys)
+
+	return
+}
+
+func getMapInterfaceKey(m map[string]interface{}) (keys []string) {
 	keys = make([]string, len(m))
 	index := 0
 	for k := range m {
@@ -780,20 +864,16 @@ func genStyle(style map[string]string) string {
 	return st.String()
 }
 
-func genAttr(attr map[string]string) string {
-	sortedKeys := getSortedKey(attr)
-
+func genAttr(attr []Attribute) string {
 	var st strings.Builder
-	for _, k := range sortedKeys {
-		v := attr[k]
+	for _, k := range attr {
 		if st.Len() != 0 {
 			st.WriteByte(' ')
 		}
-
-		if v != "" {
-			st.WriteString(k + "=" + "\"" + v + "\"")
+		if k.Val != "" {
+			st.WriteString(k.Key + "=" + "\"" + k.Val + "\"")
 		} else {
-			st.WriteString(k)
+			st.WriteString(k.Key)
 		}
 	}
 
@@ -811,6 +891,70 @@ func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
 		default:
 			bs, _ := json.Marshal(v)
 			st[k] = escape(string(bs))
+		}
+	}
+	return st
+}
+
+var boolAttr = map[string]bool{
+	"autofocus": true,
+	"autoplay":  true,
+	"async":     true,
+	"checked":   true,
+	"controls":  true,
+	"defer":     true,
+	"disabled":  true,
+	"hidden":    true,
+	"loop":      true,
+	"multiple":  true,
+	"open":      true,
+	"readonly":  true,
+	"required":  true,
+	"scoped":    true,
+	"selected":  true,
+}
+
+// 从props生成attr, 如果props值为空(空字符串), 则不生成此attr
+// 少数bool attr当value是空值时不生成attr
+func getAttrFromProps(attrProps Props) []Attribute {
+	var st []Attribute
+	for _, key := range attrProps.orderKey {
+		value := attrProps.data[key]
+
+		isBoolAttr := boolAttr[key]
+
+		switch v := value.(type) {
+		case nil:
+			if isBoolAttr {
+				continue
+			}
+			st = append(st, Attribute{
+				Key: key,
+				Val: "",
+			})
+		case string:
+			if v == "" && isBoolAttr {
+				continue
+			}
+			st = append(st, Attribute{
+				Key: key,
+				Val: escape(v),
+			})
+		case bool:
+			if !v && isBoolAttr {
+				continue
+			}
+			bs, _ := json.Marshal(v)
+			st = append(st, Attribute{
+				Key: key,
+				Val: string(bs),
+			})
+		default:
+			bs, _ := json.Marshal(v)
+			st = append(st, Attribute{
+				Key: key,
+				Val: string(bs),
+			})
 		}
 	}
 	return st
@@ -917,8 +1061,6 @@ func interfaceToBool(s interface{}) (d bool) {
 	default:
 		return true
 	}
-
-	return
 }
 
 func interfaceToFloat(s interface{}) (d float64) {
