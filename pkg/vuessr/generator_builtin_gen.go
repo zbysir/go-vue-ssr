@@ -953,7 +953,7 @@ func getAttrFromProps(attrProps Props) []Attribute {
 			bs, _ := json.Marshal(v)
 			st = append(st, Attribute{
 				Key: key,
-				Val: string(bs),
+				Val: escape(string(bs)),
 			})
 		}
 	}
