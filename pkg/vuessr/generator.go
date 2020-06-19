@@ -32,7 +32,6 @@ func genComponentRenderFunc(c *Compiler, pkgName, name string, file string, srcH
 		"import (\"strings\")\ntype _ strings.Builder\n"+
 		"func xx_%s(r *Render, w Writer, options *Options){\n"+
 		"%s:= extendScope(r.Global, options.Props.data)\n"+
-		"options.Directives.Exec(r, options)\n"+
 		"_ = %s\n"+
 		"%s\n"+
 		"return"+

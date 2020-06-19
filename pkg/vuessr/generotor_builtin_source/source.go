@@ -27,6 +27,8 @@ type Render struct {
 	// 指令
 	directives    map[string]DirectivesFunc
 	writerCreator func() Writer
+
+	// 一个Render可能不只一个Write, 多个Write可能并行
 }
 
 func (r Render) NewWriter() Writer {
@@ -80,7 +82,7 @@ func newRenderCreator() *RenderCreator {
 		Var:        NewScope(nil),
 		Components: nil, // inject by generator
 		Directives: map[string]DirectivesFunc{
-			"v-show": func(r *Render, binding DirectivesBinding, options *Options) {
+			"v-show": func(r *Render, w Writer, binding DirectivesBinding, options *Options) {
 				if !rinterface.ToBool(binding.Value) {
 					if options.Style == nil {
 						options.Style = map[string]string{}
@@ -129,7 +131,7 @@ type DirectivesBinding struct {
 	Name  string
 }
 
-type DirectivesFunc func(r *Render, b DirectivesBinding, options *Options)
+type DirectivesFunc func(r *Render, w Writer, b DirectivesBinding, options *Options)
 
 func emptyFunc(r *Render, options *Options, args ...interface{}) interface{} {
 	if len(args) != 0 {
@@ -408,7 +410,7 @@ func _component(r *Render, w Writer, options *Options) {
 
 func _template(r *Render, w Writer, options *Options) {
 	// exec directive
-	options.Directives.Exec(r, options)
+	options.Directives.Exec(r, w, options)
 
 	options.Slots.Exec(w, "default", Props{})
 }
@@ -432,10 +434,6 @@ func _slot(r *Render, w Writer, options *Options) {
 }
 
 func _async(r *Render, w Writer, options *Options) {
-	scope := extendScope(r.Global, options.Props.Map())
-	options.Directives.Exec(r, options)
-	_ = scope
-
 	s := NewChanSpan()
 	// 异步子节点计算
 	go func() {
@@ -474,7 +472,7 @@ var voidElements = map[string]bool{
 // - 有自己定义指令(自定义指令需要修改组件所有属性, 只能由动态tag实现)
 func _tag(r *Render, w Writer, tagName string, isRoot bool, options *Options) {
 	// exec directive
-	options.Directives.Exec(r, options)
+	options.Directives.Exec(r, w, options)
 
 	var p *Options
 	if isRoot {
@@ -587,10 +585,10 @@ type vonDirective struct {
 
 type directives []directive
 
-func (ds directives) Exec(r *Render, options *Options) {
+func (ds directives) Exec(r *Render, w Writer, options *Options) {
 	for _, d := range ds {
 		if f, ok := r.directives[d.Name]; ok {
-			f(r, DirectivesBinding{
+			f(r, w, DirectivesBinding{
 				Value: d.Value,
 				Arg:   d.Arg,
 				Name:  d.Name,

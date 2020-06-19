@@ -1,7 +1,7 @@
 package version
 
 // 当version改变，vue编译缓存就会失效。
-const Version = "0.0.23"
+const Version = "0.0.25"
 
 // 0.0.9
 // fix <!doctype html>
@@ -17,7 +17,7 @@ const Version = "0.0.23"
 // use the next package to watch file: github.com/radovskyb/watcher
 
 // 0.0.13
-// Optimization code: scope
+// optimization code: scope
 
 // 0.0.14
 // support inject and provide
@@ -36,7 +36,7 @@ const Version = "0.0.23"
 // added *Options arg when call function
 
 // 0.0.20
-// Reduce costs of NewRender()
+// reduce costs of NewRender()
 
 // 0.0.21
 // support v-html directive on <template>
@@ -46,3 +46,9 @@ const Version = "0.0.23"
 
 // 0.0.23
 // ordered props
+
+// 0.0.24
+// support operate writer in directives
+
+// 0.0.25
+// exec directives on root tag of custom component

@@ -44,7 +44,7 @@ func (p *Props) Del(key string) {
 // 用来生成Option代码所需要的数据
 type OptionsGen struct {
 	Props           Props             // 上级传递的 数据(包含了class和style)
-	Attrs           []Attribute // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
+	Attrs           []Attribute       // 上级传递的 静态的attrs (除去class和style), 只会作用在root节点
 	Class           []string          // 静态class
 	Style           map[string]string // 静态style
 	Slot            map[string]string // 插槽节点
@@ -195,7 +195,7 @@ func (o *OptionsGen) ToGoCode() string {
 	}
 	c += fmt.Sprintf("Slots: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc", false))
 
-	// p
+	// p 父级option
 	c += fmt.Sprintf("P: options,\n")
 
 	// directive
@@ -214,6 +214,95 @@ func (o *OptionsGen) ToGoCode() string {
 			dir += fmt.Sprintf("{Name: \"%s\", Value: %s, Arg: \"%s\"},\n", v.Name, valueCode, v.Arg)
 		}
 		dir += "}"
+
+		c += fmt.Sprintf("Directives: %s,\n", dir)
+	}
+
+	// Scope
+	c += fmt.Sprintf("Scope: %s,\n", ScopeKey)
+
+	c += "}"
+	return c
+}
+
+// 生成组件根节点所需要的Option代码
+// 和ToGoCode不同的是: ToGoCodeForRoot会合并上层Options数据用于渲染当前节点,
+//   实现<component :id=1>这样的写法会在组件下的根节点上生成id.
+// 会合并以下数据:
+//   Props: 用于生成attr
+//   Attr: 用于生成attr
+//   Class: 用于生成Class
+//   Style: 用于生成Class
+//   Directives: 在组件外层的指令并没有实用价值(无法操作Dom), 放在根节点上运行更实用.
+func (o *OptionsGen) ToGoCodeForRoot() string {
+	c := "&Options{\n"
+
+	if len(o.Props) != 0 {
+		// class
+		classJs, ok := o.Props.Get("class")
+		if ok {
+			o.Props.Del("class")
+			cCode := genPropsClassCode(classJs)
+			c += fmt.Sprintf("PropsClass: %s, \n", cCode)
+		}
+		styleJs, ok := o.Props.Get("style")
+		// style
+		if ok {
+			o.Props.Del("style")
+			cStyle := genPropsStyleCode(styleJs)
+			c += fmt.Sprintf("PropsStyle: %s, \n", cStyle)
+		}
+
+		// 除了class/style的props
+		if len(o.Props) != 0 {
+			c += fmt.Sprintf("Props: %s, \n", genProps(o.Props))
+		}
+	}
+
+	if len(o.Attrs) != 0 {
+		c += fmt.Sprintf("Attrs: %s,\n", genAttrsCode(o.Attrs))
+	}
+	if len(o.Class) != 0 {
+		c += fmt.Sprintf("Class: %s,\n", sliceToGoCode(o.Class))
+	}
+	if len(o.Style) != 0 {
+		c += fmt.Sprintf("Style: %s,\n", mapStringToGoCode(o.Style))
+	}
+
+	// slot
+	slot := map[string]string{}
+
+	children := o.DefaultSlotCode
+	if children != `""` {
+		slot["default"] = fmt.Sprintf(`func(w Writer, props Props){
+%s
+}`, children)
+	}
+
+	for k, v := range o.NamedSlotCode {
+		slot[k] = v
+	}
+	c += fmt.Sprintf("Slots: %s,\n", mapGoCodeToCode(slot, "NamedSlotFunc", false))
+
+	// p 父级option
+	c += fmt.Sprintf("P: options,\n")
+
+	// directive
+	{
+		// 数组
+		dir := "append(options.Directives,\n"
+		for _, v := range o.Directives {
+			valueCode := "nil"
+			if v.Value != "" {
+				var err error
+				valueCode, err = ast.Js2Go(v.Value, ScopeKey)
+				if err != nil {
+					panic(err)
+				}
+			}
+			dir += fmt.Sprintf("directive{Name: \"%s\", Value: %s, Arg: \"%s\"},\n", v.Name, valueCode, v.Arg)
+		}
+		dir += ")"
 
 		c += fmt.Sprintf("Directives: %s,\n", dir)
 	}
@@ -383,9 +472,14 @@ func (c *Compiler) GenEleCode(e *VueElement) (code string, namedSlotCode map[str
 					Directives:      e.Directives,
 				}
 
-				optionsCode := options.ToGoCode()
+				if e.IsRoot {
+					optionsCode := options.ToGoCodeForRoot()
+					eleCode = fmt.Sprintf(`_tag(r, w, "%s", true, %s)`, e.TagName, optionsCode)
+				} else {
+					optionsCode := options.ToGoCode()
+					eleCode = fmt.Sprintf(`_tag(r, w, "%s", false, %s)`, e.TagName, optionsCode)
+				}
 
-				eleCode = fmt.Sprintf(`_tag(r, w, "%s", %v, %s)`, e.TagName, e.IsRoot, optionsCode)
 			} else {
 				// 静态节点
 				attrs := genAllAttrCode(e)
