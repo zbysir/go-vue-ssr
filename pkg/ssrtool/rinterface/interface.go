@@ -15,7 +15,7 @@ func ToStr(s interface{}, escaped bool) (d string) {
 		bs, _ := json.Marshal(a)
 		d = string(bs)
 	}
-	if  escaped{
+	if escaped {
 		d = html.EscapeString(d)
 	}
 	return
@@ -101,5 +101,27 @@ func ToBool(s interface{}) (d bool) {
 		return a != "" && a != "false" && a != "0"
 	default:
 		return true
+	}
+}
+
+func ToFloat(s interface{}) (d float64) {
+	if s == nil {
+		return 0
+	}
+	switch a := s.(type) {
+	case float64:
+		return a
+	case float32:
+		return float64(a)
+	case int:
+		return float64(a)
+	case int8:
+		return float64(a)
+	case int32:
+		return float64(a)
+	case int64:
+		return float64(a)
+	default:
+		return 0
 	}
 }

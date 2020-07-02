@@ -80,3 +80,7 @@ func GetSlice(data interface{}, key ...string) []interface{} {
 func GetSliceInt(data interface{}, key ...string) []int64 {
 	return ToSliceInt(Get(data, key...))
 }
+
+func GetFloat(data interface{}, key ...string) float64 {
+	return ToFloat(Get(data, key...))
+}
