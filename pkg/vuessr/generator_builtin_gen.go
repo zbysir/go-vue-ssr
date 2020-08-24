@@ -894,6 +894,7 @@ func getStyleFromProps(styleProps map[string]interface{}) map[string]string {
 	return st
 }
 
+// bool属性, 如果是 则当值不是true时不会渲染出此属性
 var boolAttr = map[string]bool{
 	"autofocus": true,
 	"autoplay":  true,
@@ -905,6 +906,7 @@ var boolAttr = map[string]bool{
 	"hidden":    true,
 	"loop":      true,
 	"multiple":  true,
+	"muted":     true,
 	"open":      true,
 	"readonly":  true,
 	"required":  true,
