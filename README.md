@@ -2,7 +2,7 @@
 [![GoDoc](https://godoc.org/github.com/zbysir/go-vue-ssr?status.svg)](https://godoc.org/github.com/zbysir/go-vue-ssr)
 [![Go ReportCard](https://goreportcard.com/badge/github.com/zbysir/go-vue-ssr)](https://goreportcard.com/report/github.com/zbysir/go-vue-ssr)
 
-Vue server side render but golang. https://zbysir.github.io/go-vue-ssr
+A precompilation template engine for go, template syntax like vue. https://zbysir.github.io/go-vue-ssr
 
 Hey vue go
 ## Cause
