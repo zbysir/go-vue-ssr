@@ -5,6 +5,9 @@
 A precompilation template engine for go, template syntax like vue. https://zbysir.github.io/go-vue-ssr
 
 Hey vue go
+## Related
+- https://github.com/zbysir/vpl: 不用预编译, 更方便的vue-like模板引擎.
+
 ## Cause
 服务端渲染相较于前端渲染有以下好处:
 - 利于内容型网站的SEO.
