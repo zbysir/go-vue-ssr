@@ -3,7 +3,7 @@ module github.com/zbysir/go-vue-ssr
 go 1.13
 
 require (
-	github.com/buger/jsonparser v0.0.0-20191204142016-1a29609e0929
+	github.com/buger/jsonparser v1.1.1
 	github.com/golang/protobuf v1.3.3 // indirect
 	github.com/json-iterator/go v1.1.9
 	github.com/kr/pretty v0.2.0 // indirect
